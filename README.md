@@ -3,7 +3,7 @@
 Two-PC secure messaging and file-transfer protocol: a custom application protocol,
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
-Status: **Phase 0 — foundation**. See [`task.md`](task.md) for the current task.
+Status: **Phase 0 — foundation**.
 
 ## Build
 
