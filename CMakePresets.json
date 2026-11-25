@@ -49,6 +49,20 @@
         "TWOLINK_SANITIZE": "ON",
         "TWOLINK_FUZZ": "ON"
       }
+    },
+    {
+      "name": "msvc",
+      "inherits": "base",
+      "generator": "Visual Studio 17 2022",
+      "architecture": "x64",
+      "cacheVariables": {
+        "TWOLINK_WARNINGS_AS_ERRORS": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     }
   ],
   "buildPresets": [
@@ -71,6 +85,11 @@
     {
       "name": "fuzz",
       "configurePreset": "fuzz"
+    },
+    {
+      "name": "msvc",
+      "configurePreset": "msvc",
+      "configuration": "Debug"
     }
   ],
   "testPresets": [
@@ -91,6 +110,14 @@
     {
       "name": "ci",
       "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "msvc",
+      "configurePreset": "msvc",
+      "configuration": "Debug",
       "output": {
         "outputOnFailure": true
       }
