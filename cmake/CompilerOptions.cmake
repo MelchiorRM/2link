@@ -17,4 +17,8 @@ else()
       -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
     target_link_options(twolink_options INTERFACE -fsanitize=address,undefined)
   endif()
+  if(TWOLINK_FUZZ)
+    # Coverage instrumentation for libraries; fuzz targets add -fsanitize=fuzzer.
+    target_compile_options(twolink_options INTERFACE -fsanitize=fuzzer-no-link)
+  endif()
 endif()
