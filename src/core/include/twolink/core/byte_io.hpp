@@ -16,7 +16,7 @@ template <std::unsigned_integral T>
 constexpr void store_be(std::span<std::uint8_t, sizeof(T)> out, T value) noexcept {
   for (std::size_t i = 0; i < sizeof(T); ++i) {
     out[sizeof(T) - 1 - i] = static_cast<std::uint8_t>(value & 0xFFu);
-    value = static_cast<T>(value >> 8);
+    if constexpr (sizeof(T) > 1) value = static_cast<T>(value >> 8);
   }
 }
 
