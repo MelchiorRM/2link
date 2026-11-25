@@ -7,7 +7,7 @@ Status: **Phase 0 — foundation**.
 
 ## Build
 
-Requirements: CMake ≥ 3.24, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git.
+Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git.
 Dependencies are fetched by CMake (GoogleTest for now).
 
 ```bash
