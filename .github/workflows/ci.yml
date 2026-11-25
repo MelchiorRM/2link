@@ -16,6 +16,17 @@ jobs:
       - name: Test
         run: ctest --preset ci
 
+  windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure
+        run: cmake --preset msvc
+      - name: Build
+        run: cmake --build --preset msvc --parallel
+      - name: Test
+        run: ctest --preset msvc
+
   fuzz:
     runs-on: ubuntu-24.04
     steps:
