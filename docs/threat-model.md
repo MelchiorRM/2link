@@ -103,7 +103,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | S1 | Eavesdropping on messages or files | T1 | ChaCha20-Poly1305 with Noise-derived keys | Packet capture shows no plaintext |
 | S2 | Modifying payload or header fields | T2 | AEAD with the full header as associated data (spec §5.2) | Unit test: flip each header and payload byte → `DECRYPT_FAILED` |
 | S3 | Replay, drop or reorder of frames | T2 | Strict `seq == expected` over TCP (spec §5.3) | Unit tests: duplicate, gap, reorder → fatal |
-| S4 | Nonce reuse | Implementation bug | Nonce = `seq`, never reset; keys per direction; rekey replaces keys; `seq = 2^64-1` never sent | Unit tests, code review |
+| S4 | Nonce reuse | Implementation bug | Nonces come only from the Noise CipherState counter, which advances once per frame and never resets (not even on rekey); `seq` must equal it; keys per direction; counter `2^64-1` never reached | Unit tests, code review |
 | S5 | Frames spliced from another connection | T2 | `conn_id` in authenticated header; separate keys per connection | Unit test |
 | S6 | Oversized `length` causes huge allocation | T2, T5 | Header validated before allocation; `MAX_PAYLOAD` 512 KiB; parser buffer bounded (spec §2.1, §2.4) | Unit tests, fuzzing |
 | S7 | Malformed frames trigger memory bugs | T2, T5 | Bounds-checked parsing; ASan/UBSan in CI; fuzzing the frame parser | Fuzz target, sanitizer CI |

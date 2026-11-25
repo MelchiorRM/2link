@@ -294,19 +294,26 @@ When the handshake completes, Noise `Split()` gives two CipherStates:
 Each side encrypts with its sending CipherState and decrypts with its receiving one.
 Keys are never reused across directions or connections.
 
-The Noise library MUST support explicit nonces (`SetNonce`) and `Rekey`, and expose
-the remote static key and the handshake hash.
+The Noise library MUST provide the standard CipherState operations
+(`EncryptWithAd`, `DecryptWithAd`, `Rekey`) and expose the remote static key and the
+handshake hash. Explicit nonce control (`SetNonce`) is **not** required.
 
 ### 5.2 Frame encryption
 
 Every frame except `HANDSHAKE` is encrypted with ChaCha20-Poly1305:
 
 ```
-nonce      = seq                       (Noise ChaChaPoly encoding: 4 zero bytes || LE64(seq))
+nonce      = the CipherState's internal counter n (standard Noise behaviour)
 ad         = the 28-byte frame header, as sent
 payload    = ciphertext || tag (16 bytes)
 length     = plaintext_length + 16
 ```
+
+- 2Link never chooses nonces itself. Each `EncryptWithAd` / `DecryptWithAd`
+  advances the CipherState counter by exactly one.
+- The sender sets `seq` to the counter value of its sending CipherState, i.e. the
+  number of encrypted frames it has already sent on this connection. Because TCP
+  delivers in order, the receiver's counter equals `seq` of the next valid frame.
 
 - The header, including `length`, is authenticated as associated data, so any change
   to `type`, `stream_id`, `conn_id`, `seq` or `length` makes decryption fail.
@@ -316,11 +323,16 @@ length     = plaintext_length + 16
 ### 5.3 Sequence numbers and replay protection
 
 - `seq` of encrypted frames starts at `0` in each direction and increases by exactly
-  `1` per frame. It is independent of the handshake frame counter.
-- Over TCP the receiver MUST require `seq == expected_seq`. A duplicate, gap or
-  reordering is fatal (`REPLAY_DETECTED`).
-- `seq = 2^64 - 1` is reserved by Noise and MUST NOT be sent.
-- V2 (UDP) replaces the strict check with a sliding replay window.
+  `1` per frame, mirroring the CipherState counter. It is independent of the
+  handshake frame counter.
+- Over TCP the receiver MUST check `seq == expected_seq` (its receiving counter)
+  **before** decrypting. A duplicate, gap or reordering is fatal
+  (`REPLAY_DETECTED`). A frame that slipped past this check would still fail
+  decryption, because its nonce would not match.
+- Counter value `2^64 - 1` is reserved by Noise; a connection MUST close before
+  reaching it.
+- V2 (UDP) cannot rely on an implicit in-order counter. It will need explicit
+  per-frame nonces and a sliding replay window (section 10).
 
 ### 5.4 Rekeying
 
@@ -329,7 +341,8 @@ length     = plaintext_length + 16
 - To rekey, the sender sends `REKEY` (encrypted with the current key), then applies
   Noise `Rekey()` to its sending CipherState. Frames after `REKEY` use the new key.
 - On decrypting `REKEY`, the receiver applies `Rekey()` to its receiving CipherState.
-- `seq` keeps counting across rekeys and does not reset.
+- `seq` keeps counting across rekeys and does not reset. Noise `Rekey()` changes the
+  key but leaves the counter unchanged, so `seq` and the counter stay equal.
 - Each direction rekeys independently.
 
 ## 6. Connection state machine
@@ -487,5 +500,10 @@ mDNS may replace UDP broadcast in a later version.
 
 - Payload formats for messaging (Phase 7) and transfer (Phases 2–3).
 - Flow control and priority between transfer streams on the bulk connection (Phase 4).
-- Replay window and connection migration for the UDP transport (V2).
+- Replay window, explicit per-frame nonces and connection migration for the UDP
+  transport (V2).
+- **Noise library proof-of-concept (blocks freezing v0.1):** on Linux and
+  Windows/MSVC, verify XX, IK, Curve25519 + ChaCha20-Poly1305 + BLAKE2b, access to
+  the handshake hash and remote static key, CipherState encrypt/decrypt, and
+  `Rekey()`. Sections 4 and 5 change if it fails.
 - Longer verification codes or QR fingerprints instead of the 6-digit SAS.

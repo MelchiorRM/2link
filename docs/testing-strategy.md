@@ -104,8 +104,8 @@ design review, no automated test).
 | S1 | Capture a session with `tcpdump`; search for known plaintext | System | Plaintext absent | 1 | planned |
 | S2 | Flip each bit of header and payload of an encrypted frame | Unit | Every flip → `DECRYPT_FAILED`, plaintext never returned | 1 | planned |
 | S3 | Duplicate, skipped and swapped `seq` | Unit | Fatal `REPLAY_DETECTED` | 1 | planned |
-| S4 | Encrypt N frames, collect nonces per key | Unit | No (key, nonce) pair repeats; rekey changes the key; `seq = 2^64-1` refused | 1 | planned |
-| S4 | — | Review | Nonce derivation has a single implementation | 1 | review |
+| S4 | Encrypt N frames with a rekey in the middle; compare `seq` with both CipherState counters | Unit | `seq` == sender counter == receiver counter for every frame; counter not reset by rekey; no (key, nonce) pair repeats; connection closes before counter `2^64-1` | 1 | planned |
+| S4 | — | Review | No code sets a nonce manually; only the CipherState chooses nonces | 1 | review |
 | S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | planned |
 | S6 | Header with `length` above limits, split and unsplit | Unit | Rejected after the header; buffer never exceeds `kMaxFrameSize` | 0 | done |
 | S7 | Fuzz the frame parser; random garbage under ASan/UBSan | Fuzz, unit | No crash or sanitizer report; chunking-invariant results | 0 | done |
