@@ -184,7 +184,7 @@ for automated runs.
 ### 6.1 Method
 
 - **Hardware:** two PCs on a gigabit Ethernet switch, no other traffic. Record CPU
-  model, OS, NIC and link speed with every result.
+  model, OS, NIC, link speed **and storage throughput (P0)** with every result.
 - **Builds:** `release` preset only. Never benchmark sanitizer builds.
 - **Repetition:** 5 runs per configuration; report the median and min/max.
 - **Storage:** results are committed to `docs/benchmarks/<date>-<topic>.md` with the
@@ -194,9 +194,10 @@ for automated runs.
 
 | ID | Measurement | Target (V1) | Phase |
 |----|-------------|-------------|-------|
+| P0 | Storage throughput: sequential read of a 4 GiB file on the sender's source disk, sequential write of 4 GiB to the receiver's download directory (`fio` on Linux, `diskspd` on Windows, page cache bypassed) | Ceiling reference, no target | 2 |
 | P1 | `iperf3 -t 30` TCP between the two PCs | Ceiling reference, no target | 2 |
-| P2 | 2Link transfer of a 4 GiB random file, primary → bulk connection, disk to disk | ≥ 80 % of P1 goodput | 2 |
-| P3 | Same as P2 from and to a RAM disk | ≥ 85 % of P1 (isolates disk) | 2 |
+| P2 | 2Link transfer of a 4 GiB random file over the bulk connection, disk to disk | ≥ 80 % of min(P1, P0 read, P0 write) | 2 |
+| P3 | Same as P2 from and to a RAM disk | ≥ 85 % of P1 (removes storage from the path) | 2 |
 | P4 | Loopback microbenchmark: frame encode + AEAD + parse, one core | Report Gbit/s; must exceed 1 Gbit/s so crypto is not the bottleneck | 1 |
 | P5 | CPU utilization during P2 (sender and receiver) | Report; no target in V1 | 2 |
 
@@ -214,7 +215,7 @@ the two PCs need no clock synchronization.
 
 ### 6.4 Baseline rule
 
-P1–P5 and L-1–L-4 on plain TCP form the **V1 baseline**. The UDP transport (V2) and
+P0–P5 and L-1–L-4 on plain TCP form the **V1 baseline**. The UDP transport (V2) and
 multipath must report the same measurements against it, and QUIC is measured in the
 same setup as the reference.
 
@@ -227,7 +228,7 @@ same setup as the reference.
 | 3 | Interrupted transfers resume without re-sending verified chunks | R1–R4 |
 | 4 | Chat stays responsive during bulk transfer; concurrent transfers work | L-2, F5, concurrent-transfer integration test |
 | 5 | Offline messages sync after reconnection | R8 |
-| 6 | Measured performance on gigabit Ethernet | P1–P5 report |
+| 6 | Measured performance on gigabit Ethernet | P0–P5 report |
 | 7 | All automated correctness and robustness tests pass | CI green on all jobs |
 
 ## 8. Definition of done (per feature)
