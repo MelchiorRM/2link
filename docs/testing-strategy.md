@@ -92,6 +92,7 @@ design review, no automated test).
 | H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | planned |
 | H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | planned |
 | H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | planned |
+| H7 | TLV list: unknown optional tag (`0x7F`), unknown critical tag (`0x80`, `0xFF`), duplicate known and unknown tags, missing required tag, truncated value | Unit, fuzz | Optional ignored; every other case rejects the whole list | 1 | planned |
 | H8 | Replay a captured handshake message | Integration | Handshake fails | 1 | planned |
 | H9 | Open many TCP connections that never complete the handshake | Integration (fake clock) | Concurrent handshake cap enforced; all time out after 10 s; memory bounded | 1 | planned |
 | H10 | Two peers connected at once | Integration | Frames from peer A's connection never decrypt under peer B's keys; identity always from the Noise static key | 1 | planned |

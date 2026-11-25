@@ -199,8 +199,19 @@ tag: u8 | len: u16 | value: [len] u8     (repeated)
 | `0x02` | `ROLE` | u8: `0` primary, `1` bulk | Required |
 | `0x03` | `FEATURES` | u32 bitmask, `0` in v0.1 | Optional |
 
-- A duplicate tag, a missing required tag, or a malformed value is fatal.
-- Unknown tags MUST be ignored, so that later versions can add fields.
+**Criticality.** The high bit of the tag (`0x80`) marks a **critical** field:
+
+| Tag range | Kind | Unknown to the receiver |
+|-----------|------|-------------------------|
+| `0x00`–`0x7F` | Optional | MUST be ignored |
+| `0x80`–`0xFF` | Critical | Fatal: the receiver MUST reject the whole TLV list |
+
+All v0.1 tags are below `0x80`. A later version that adds a field a peer must not
+silently skip (for example one that changes security behaviour) gives it a tag in
+`0x80`–`0xFF`.
+
+- A duplicate tag (known or unknown), a missing required tag, or a malformed value
+  is fatal.
 - `ROLE = bulk` is only valid with `kind = RECONNECT` (section 6.4).
 
 ### 4.4 First pairing: Noise XX
@@ -472,8 +483,9 @@ The TLV list uses the encoding of section 4.3:
 | `0x12` | `TCP_PORT` | u16 | Required |
 
 - The whole datagram MUST be at most 512 bytes.
-- A receiver MUST drop announcements with a bad magic, version, type or TLV list, or
-  where `DEVICE_ID != BLAKE2b-256(STATIC_PUBLIC_KEY)`.
+- A receiver MUST drop announcements with a bad magic, version, type or TLV list
+  (including an unknown critical tag, section 4.3), or where
+  `DEVICE_ID != BLAKE2b-256(STATIC_PUBLIC_KEY)`.
 - A device whose key is in the trust store is shown as *paired*, but is only trusted
   once an IK handshake against the pinned key succeeds.
 - Every other device is shown as *unverified* until paired with XX.

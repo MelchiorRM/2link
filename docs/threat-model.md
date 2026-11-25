@@ -91,7 +91,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | H4 | Changed key passed off as a known peer | T2, T4 | `device_id` is derived from the key, so a new key is an unknown device. Trust never carries over; the UI warns on a name match; trust only after explicit re-pairing (spec §4.8). | Integration test: same name, new key → unverified + warning; IK refused |
 | H5 | Unpaired device connects with IK | T4 | Responder requires the initiator key in its trust store; otherwise TCP close (spec §4.8) | Integration test |
 | H6 | Forged error during handshake (oracle, downgrade) | T2 | No error frames before keys exist; connection is just closed (spec §7.1) | Unit test: handshake state never emits a plaintext error |
-| H7 | Version or pattern downgrade | T2 | Single version; prologue `"2LINK/1"` binds the transcript; `kind` must stay constant; no IK → XX fallback | Unit tests |
+| H7 | Version or pattern downgrade | T2 | Single version; prologue `"2LINK/1"` binds the transcript; `kind` must stay constant; no IK → XX fallback; unknown critical TLV fields are rejected rather than silently ignored (spec §4.3) | Unit tests |
 | H8 | Handshake replay | T2 | Fresh ephemeral keys per handshake; replayed messages fail Noise | Integration test |
 | H9 | Many half-open handshakes exhaust resources | T6 | `HANDSHAKE_TIMEOUT` 10 s; cap on concurrent handshakes; one pairing at a time | Load test |
 | H10 | Key confusion between devices | T5 | Keys are per connection and direction; peer identity is the authenticated Noise static key, never a name or announced ID | Code review, unit test |
