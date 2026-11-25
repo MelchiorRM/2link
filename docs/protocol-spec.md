@@ -260,8 +260,13 @@ After successful pairing each side stores, per peer:
 - The initiator only uses `RECONNECT` with a peer in its trust store.
 - The responder MUST look up the initiator's static key in its trust store. If the
   key is absent it closes with `UNKNOWN_PEER`.
-- If a known `device_id` presents a different static key (for example a peer found by
-  discovery with a matching name), the connection is refused with `IDENTITY_CHANGED`.
-  It stays refused until the user explicitly re-pairs with XX.
+- Because `device_id` is derived from the static key, a peer whose key changed shows
+  up as an **unknown device**, never as a known one with a new key. Trust MUST NOT
+  carry over. If an unknown device announces the same name as a trusted peer, the
+  implementation SHOULD warn of a possible identity change (`IDENTITY_CHANGED`,
+  local only). The new key is trusted only after the user explicitly re-pairs with
+  XX, which replaces the old record.
+- If the responder's key changed, IK fails cryptographically on the responder, which
+  closes the TCP connection. The initiator reports a handshake failure.
 - There is no automatic fallback from IK to XX.
 - On success the connection enters `ESTABLISHED` with no user interaction.
