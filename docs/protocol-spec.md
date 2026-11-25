@@ -144,6 +144,16 @@ until the persistent message format replaces it.
 | `0x27` | `TRANSFER_COMPLETE` | yes | Phase 2 |
 | `0x28` | `TRANSFER_RESUME` | yes | Phase 3 |
 
+**File acceptance.** Payload formats come in Phase 2, but these rules are fixed now:
+
+- A transfer starts only after the receiving user explicitly accepts its
+  `TRANSFER_OFFER`. V1 has no automatic acceptance.
+- Any transfer frame other than `TRANSFER_OFFER` or `TRANSFER_CANCEL` for a transfer
+  the receiver has not accepted is fatal (`PROTOCOL_ERROR`).
+- Received files MUST NOT be opened or executed automatically. They are written
+  without execute permission, and on Windows SHOULD carry the "downloaded from
+  another computer" zone marker (Mark of the Web).
+
 Value `0x00` and all unlisted values are invalid in v0.1.
 
 ## 4. Identity, handshake and pairing
@@ -453,6 +463,25 @@ V1 uses up to two TCP connections per paired peer:
 | `KEEPALIVE_INTERVAL` | 15 s | Send `PING` after this long without sending |
 | `IDLE_TIMEOUT` | 45 s | Close (`TIMEOUT`) after this long without receiving |
 | `CLOSE_LINGER` | 1 s | Maximum drain time in `CLOSING` |
+
+### 6.6 Per-peer resource limits
+
+Every limit below applies **per paired peer** (`device_id`), on top of global
+limits, so one peer cannot exhaust resources needed for others. Values are v0.1
+defaults and are finalized in the Phase 2 (transfer) and Phase 7 (messaging) specs.
+
+| Resource | Default limit | On excess |
+|----------|---------------|-----------|
+| Transfer offers awaiting a user decision | 8 | New offer rejected (`TRANSFER_REJECT`) |
+| Concurrent accepted transfers | 4 | New offer rejected |
+| In-flight chunks per transfer (requested, not yet received) | 8 (2 MiB) | Receiver does not request more |
+| Unrequested `CHUNK_DATA` | 0 | Fatal (`PROTOCOL_ERROR`) |
+| Message size | 64 KiB of text | Fatal (`PROTOCOL_ERROR`) |
+| Incoming message rate | 50 per second | Back-pressure: the receiver stops reading the socket |
+| Stored offline messages for the peer | 10 000 or 64 MiB | Oldest undelivered kept; sender told to retry (Phase 7) |
+
+Excess traffic is handled by refusing or by back-pressure, never by unbounded
+buffering.
 
 ## 7. Errors
 

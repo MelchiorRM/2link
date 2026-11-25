@@ -123,8 +123,11 @@ design review, no automated test).
 | F2 | Receive a file whose name already exists | Unit | Existing file untouched; unique name chosen; temp file renamed only after verification | 2 | planned |
 | F3 | Corrupt one chunk in transit; substitute a chunk from another file | Integration | Chunk rejected and re-requested; final BLAKE3 root matches | 2 | planned |
 | F4 | Offer a file larger than free space or the size limit | Unit | Offer refused before any write | 2 | planned |
-| F5 | Out-of-range chunk index; too many concurrent transfers or in-flight chunks | Unit | Rejected; limits enforced | 2 | planned |
+| F5 | Out-of-range chunk index; 9th pending offer, 5th concurrent transfer, unrequested chunk | Unit | Index rejected; offers rejected at quota; unrequested `CHUNK_DATA` fatal | 2 | planned |
 | F6 | Modify a partial file on disk, then resume | Integration | Modified chunks detected and re-fetched | 3 | planned |
+| F7 | Send `CHUNK_DATA` / `TRANSFER_COMPLETE` for an offer the user has not accepted; user rejects an offer | Unit, integration | Fatal before acceptance; nothing written to disk; rejected offer leaves no file | 2 | planned |
+| F8 | Receive a file named `run.sh` / `setup.exe` with executable content | Unit | No execute bit on Linux; Mark of the Web stream on Windows; nothing launched | 2 | planned |
+| F8 | — | Review | No code path opens or executes received files | 2 | review |
 
 ### 4.5 Local storage
 
@@ -136,6 +139,14 @@ design review, no automated test).
 | L3 | Modify, delete or reorder a message record | Unit | Hash chain verification fails | 7 | planned |
 | L4 | — | Review | `sodium_memzero` on every key buffer at teardown | 1 | review |
 | L5 | Run integration tests with debug logging; grep logs for key bytes, plaintext markers, SAS | Integration | No match | 1 | planned |
+
+### 4.6 Per-peer resources
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| Q1 | Peer A exceeds each quota in spec §6.6 while peer B chats and transfers | Integration | A's excess refused or back-pressured as specified; A's memory use stays bounded; B's chat latency and transfer unaffected | 2 | planned |
+| Q1 | Message larger than 64 KiB; 1 000 messages per second | Unit | Oversized message fatal; flood slowed by back-pressure, not buffered | 1 | planned |
+| Q2 | Fill offline storage for one peer | Unit | Cap enforced per peer; other peers' storage unaffected | 7 | planned |
 
 ## 5. Reliability tests
 

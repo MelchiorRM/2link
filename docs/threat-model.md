@@ -118,9 +118,11 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | F1 | Path traversal via file name (`../`, absolute paths, drive letters, UNC) | T5 | Use only the final name component; reject separators, `..`, control characters, reserved Windows names; write only inside the download directory | Unit tests with a malicious-name corpus |
 | F2 | Overwriting existing files | T5 | Never overwrite; pick a unique name; write to a temp file and rename after verification | Unit test |
 | F3 | Corrupted or substituted chunks | T2, T5 | BLAKE3 per chunk; Merkle root sent inside the authenticated session (Phase 2) | Unit test: bad chunk rejected and re-requested |
-| F4 | Disk exhaustion via huge declared size | T5, T6 | Check free space before accepting; per-transfer and total size limits; user accepts offers | Unit test |
-| F5 | Unbounded transfers or chunk requests | T5, T6 | Cap concurrent transfers and in-flight chunks; validate chunk index against the manifest | Unit tests |
+| F4 | Disk exhaustion via huge declared size | T5, T6 | Check free space before accepting; per-transfer and total size limits; explicit acceptance (F7) | Unit test |
+| F5 | Unbounded transfers or chunk requests | T5, T6 | Per-peer quotas on pending offers, concurrent transfers and in-flight chunks (spec §6.6); validate chunk index against the manifest | Unit tests |
 | F6 | Tampered partial file or resume state on disk | T7 | Re-verify chunk hashes on resume; restrictive file permissions | Reliability test |
+| F7 | File pushed without the receiver's consent | T5 | Explicit per-file acceptance; no auto-accept in V1; transfer frames before acceptance are fatal (spec §3.3) | Unit, integration tests |
+| F8 | Received file opened or executed automatically (malware delivery) | T5 | Never open or execute received files; no execute permission; Mark of the Web on Windows (spec §3.3) | Unit test (permissions), code review |
 
 ### 6.5 Local storage
 
@@ -131,6 +133,13 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | L3 | Message log tampering | T7 | Hash-chained records give tamper evidence only (Phase 7) | Unit test |
 | L4 | Keys left in memory or swap | T7 | `sodium_memzero` on session teardown; `sodium_mlock` for long-term keys where supported | Code review |
 | L5 | Secrets in logs | Implementation bug | Never log keys, plaintext, or SAS values; log device IDs in display form only | Code review, log-grep test |
+
+### 6.6 Per-peer resources
+
+| ID | Threat | Actor | Mitigation | Verified by |
+|----|--------|-------|------------|-------------|
+| Q1 | A paired peer floods offers, transfers, chunks or messages, starving the host or other peers | T5, T6 | Per-peer quotas on top of global limits; excess refused or slowed by back-pressure, never buffered without bound (spec §6.6) | Unit, integration tests |
+| Q2 | A peer fills offline message storage | T5, T6 | Per-peer cap on stored offline messages (spec §6.6, Phase 7) | Unit test |
 
 ## 7. Out of scope for V1
 
@@ -152,7 +161,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 |------|--------|--------------------------|
 | User confirms the SAS without comparing (H3) | MITM succeeds at pairing | Usability limit; consider a QR fingerprint or longer code in v0.2 |
 | 6-digit SAS (~20 bits) | 1 in 10^6 MITM success per attempt | One guess per attempt, explicit pairing window, per-source rate limiting; longer code later |
-| Malicious paired device (T5) | Can send hostile but well-formed content | Mitigated by input validation (F1–F5, S6–S8), not by crypto. Users should only pair devices they control. |
+| Malicious paired device (T5) | Can send hostile but well-formed content | Mitigated by input validation (F1–F8, S6–S8) and per-peer quotas (Q1–Q2), not by crypto. Users should only pair devices they control. |
 | Injected TCP resets (S10) | Sessions drop | Fast IK reconnect and transfer resume |
 | Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
 | Device names leak on the LAN (D5) | Presence and naming visible | Users choose neutral names |
