@@ -1,6 +1,8 @@
 # 2Link Protocol Specification v0.1
 
 Status: draft. Applies to protocol version `1` (V1: LAN, direct TCP).
+v0.1 is frozen once the Noise library proof-of-concept confirms sections 4 and 5
+(see section 10).
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -152,8 +154,11 @@ Value `0x00` and all unlisted values are invalid in v0.1.
   key MUST stay on the device, in the OS secure keystore (libsecret, Windows DPAPI).
 - `device_id = BLAKE2b-256(static_public_key)` (32 bytes). A changed key gives a
   changed `device_id`.
+- The full 32-byte `device_id` is the device's identity. Storage, lookups,
+  comparisons and tie-breaks (section 6.4) MUST use all 32 bytes.
 - Display form: the first 8 bytes of `device_id` as lowercase hex in four groups of
-  four characters, e.g. `3fa1-09bc-77de-0142`.
+  four characters, e.g. `3fa1-09bc-77de-0142`. It is only a short label for people
+  and logs; it MUST NOT be used to identify, look up or trust a device.
 
 ### 4.2 Handshake framing
 
@@ -171,6 +176,10 @@ kind: u8 | noise_message: [length - 1] u8
 | `0x02` | `RECONNECT` | `Noise_IK_25519_ChaChaPoly_BLAKE2b` |
 
 Every `HANDSHAKE` frame in a connection MUST carry the same `kind`.
+
+The cipher suite (Curve25519, ChaCha20-Poly1305, BLAKE2b) is **provisional** until
+the Noise library proof-of-concept confirms it builds and interoperates on Linux and
+Windows/MSVC (section 10).
 
 **Prologue.** Both patterns use the prologue `"2LINK/1"` (7 ASCII bytes). A peer
 using a different prologue fails the handshake.
