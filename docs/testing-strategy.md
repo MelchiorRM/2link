@@ -63,3 +63,74 @@ Planned: a nightly job that fuzzes each target for 30 minutes and keeps its corp
 and a TSan job once threads are introduced.
 
 A change is mergeable only when all jobs pass.
+
+## 4. Security tests
+
+One row per threat ID. **Phase** is when the test must exist (before the feature
+is called done). Status: `done`, `partial`, `planned`, `review` (verified by code or
+design review, no automated test).
+
+### 4.1 Discovery
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| D1 | Forged announcement reuses a trusted peer's name with a foreign key | Integration | Shown as unverified; IK to it fails; trust store unchanged | 1 | planned |
+| D2 | Announcement with `DEVICE_ID != BLAKE2b-256(key)` | Unit | Dropped | 1 | planned |
+| D3 | Fuzz the announcement parser; malformed TLV corpus; datagram > 512 bytes | Fuzz, unit | No crash; every malformed input dropped | 1 | planned |
+| D4 | 10 000 announcements from distinct IDs and sources | Unit | Device table stays at its cap; memory bounded; old entries expire | 1 | planned |
+| D5 | — | — | Accepted risk | — | n/a |
+
+### 4.2 Handshake and pairing
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| H1 | Relay attacker runs separate XX handshakes with each side | Integration | The two SAS values differ; neither side stores the attacker key unless confirmed | 1 | planned |
+| H1 | SAS known-answer vectors (fixed `h` → expected 6 digits) | Unit | Matches spec §4.5 exactly, incl. zero padding | 1 | planned |
+| H2 | 3 failed pairings in 10 min, then a 4th attempt | Unit (fake clock) | 4th refused without handshake; accepted again after 10 min | 1 | planned |
+| H3 | — | Review | UI requires explicit confirm on both sides | 8 | review |
+| H4 | Peer reappears with the same name and a new key | Integration | Shown as unknown + identity-change warning; IK refused; old record kept until explicit re-pair | 1 | planned |
+| H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | planned |
+| H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | planned |
+| H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | planned |
+| H8 | Replay a captured handshake message | Integration | Handshake fails | 1 | planned |
+| H9 | Open many TCP connections that never complete the handshake | Integration (fake clock) | Concurrent handshake cap enforced; all time out after 10 s; memory bounded | 1 | planned |
+| H10 | Two peers connected at once | Integration | Frames from peer A's connection never decrypt under peer B's keys; identity always from the Noise static key | 1 | planned |
+| H10 | — | Review | No code path derives identity from name or announcement | 1 | review |
+
+### 4.3 Session and framing
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| S1 | Capture a session with `tcpdump`; search for known plaintext | System | Plaintext absent | 1 | planned |
+| S2 | Flip each bit of header and payload of an encrypted frame | Unit | Every flip → `DECRYPT_FAILED`, plaintext never returned | 1 | planned |
+| S3 | Duplicate, skipped and swapped `seq` | Unit | Fatal `REPLAY_DETECTED` | 1 | planned |
+| S4 | Encrypt N frames, collect nonces per key | Unit | No (key, nonce) pair repeats; rekey changes the key; `seq = 2^64-1` refused | 1 | planned |
+| S4 | — | Review | Nonce derivation has a single implementation | 1 | review |
+| S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | planned |
+| S6 | Header with `length` above limits, split and unsplit | Unit | Rejected after the header; buffer never exceeds `kMaxFrameSize` | 0 | done |
+| S7 | Fuzz the frame parser; random garbage under ASan/UBSan | Fuzz, unit | No crash or sanitizer report; chunking-invariant results | 0 | done |
+| S8 | Every (state, frame type) and (stream, frame type) pair from spec §2.2 and §6.3 | Unit | Allowed pairs accepted; all others fatal | 0 / 1 | partial (stream rules done) |
+| S9 | — | Review | Ephemeral keys used; session keys zeroed on teardown | 1 | review |
+| S10 | Inject a TCP reset mid-transfer | Integration | IK reconnect succeeds; transfer resumes (see R2) | 3 | planned |
+
+### 4.4 File transfer
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| F1 | Malicious name corpus: `../x`, `/etc/passwd`, `C:\x`, `\\host\share`, `CON`, `a/b`, NUL and control chars, empty, 4 KiB long, Unicode tricks | Unit | Every name rejected or reduced to a safe final component inside the download dir | 2 | planned |
+| F2 | Receive a file whose name already exists | Unit | Existing file untouched; unique name chosen; temp file renamed only after verification | 2 | planned |
+| F3 | Corrupt one chunk in transit; substitute a chunk from another file | Integration | Chunk rejected and re-requested; final BLAKE3 root matches | 2 | planned |
+| F4 | Offer a file larger than free space or the size limit | Unit | Offer refused before any write | 2 | planned |
+| F5 | Out-of-range chunk index; too many concurrent transfers or in-flight chunks | Unit | Rejected; limits enforced | 2 | planned |
+| F6 | Modify a partial file on disk, then resume | Integration | Modified chunks detected and re-fetched | 3 | planned |
+
+### 4.5 Local storage
+
+| ID | Test | Level | Pass criterion | Phase | Status |
+|----|------|-------|----------------|-------|--------|
+| L1 | — | Review | Private key only goes through the keystore API | 1 | review |
+| L2 | Edit the trust store file | Unit | Integrity check fails; store refused | 1 | planned |
+| L2 | File permissions after creation | Unit (Linux) | `0600` | 1 | planned |
+| L3 | Modify, delete or reorder a message record | Unit | Hash chain verification fails | 7 | planned |
+| L4 | — | Review | `sodium_memzero` on every key buffer at teardown | 1 | review |
+| L5 | Run integration tests with debug logging; grep logs for key bytes, plaintext markers, SAS | Integration | No match | 1 | planned |
