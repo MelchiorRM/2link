@@ -17,13 +17,22 @@ ctest --preset debug
 ./build/debug/apps/cli/2link
 ```
 
+Fuzzing (requires Clang with libFuzzer):
+
+```bash
+cmake --preset fuzz && cmake --build --preset fuzz --target fuzz_frame_parser
+./build/fuzz/tests/fuzz/fuzz_frame_parser -max_total_time=60 tests/fuzz/corpus
+```
+
+With GCC, the same binary replays input files: `fuzz_frame_parser <files...>`.
+
 ## Layout
 
 ```
 apps/cli/        command-line front end (first implementation target)
 src/core/        shared types, version, utilities
 src/framing/     frame format, serialization, bounds-checked parser
-tests/           GoogleTest unit tests (CTest)
+tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md
 ```
 
