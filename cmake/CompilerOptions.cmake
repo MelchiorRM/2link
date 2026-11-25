@@ -1,0 +1,20 @@
+add_library(twolink_options INTERFACE)
+add_library(twolink::options ALIAS twolink_options)
+
+if(MSVC)
+  target_compile_options(twolink_options INTERFACE /W4 /permissive-)
+  if(TWOLINK_WARNINGS_AS_ERRORS)
+    target_compile_options(twolink_options INTERFACE /WX)
+  endif()
+else()
+  target_compile_options(twolink_options INTERFACE
+    -Wall -Wextra -Wpedantic -Wconversion -Wsign-conversion -Wshadow)
+  if(TWOLINK_WARNINGS_AS_ERRORS)
+    target_compile_options(twolink_options INTERFACE -Werror)
+  endif()
+  if(TWOLINK_SANITIZE)
+    target_compile_options(twolink_options INTERFACE
+      -fsanitize=address,undefined -fno-omit-frame-pointer -fno-sanitize-recover=all)
+    target_link_options(twolink_options INTERFACE -fsanitize=address,undefined)
+  endif()
+endif()
