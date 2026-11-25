@@ -426,3 +426,57 @@ V1 uses up to two TCP connections per paired peer:
 | `0x000D` | `DUPLICATE_CONNECTION` | Losing side of a simultaneous connect |
 | `0x000E` | `INVALID_STREAM` | Frame type not valid on its stream or connection role |
 | `0x000F` | `INTERNAL_ERROR` | Local failure |
+
+## 8. Discovery (provisional)
+
+Discovery finds devices; it never establishes trust. Announcements are plaintext
+and unauthenticated, so anyone on the LAN can forge them.
+
+### 8.1 Announcement
+
+Sent by UDP broadcast to port `DISCOVERY_PORT` on startup and every 5 s.
+
+```
+magic: "2LNK" (4 bytes) | version: u8 = 1 | type: u8 = 0x01 (ANNOUNCE) | TLV list
+```
+
+The TLV list uses the encoding of section 4.3:
+
+| Tag | Name | Value | Rule |
+|-----|------|-------|------|
+| `0x01` | `DEVICE_NAME` | UTF-8, 1..64 bytes | Required |
+| `0x10` | `DEVICE_ID` | 32 bytes | Required |
+| `0x11` | `STATIC_PUBLIC_KEY` | 32 bytes | Required |
+| `0x12` | `TCP_PORT` | u16 | Required |
+
+- The whole datagram MUST be at most 512 bytes.
+- A receiver MUST drop announcements with a bad magic, version, type or TLV list, or
+  where `DEVICE_ID != BLAKE2b-256(STATIC_PUBLIC_KEY)`.
+- A device whose key is in the trust store is shown as *paired*, but is only trusted
+  once an IK handshake against the pinned key succeeds.
+- Every other device is shown as *unverified* until paired with XX.
+
+mDNS may replace UDP broadcast in a later version.
+
+## 9. Constants
+
+| Name | Value |
+|------|-------|
+| Protocol version | `1` |
+| `HEADER_SIZE` | 28 bytes |
+| `MAX_PAYLOAD` | 524 288 bytes |
+| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes |
+| `AEAD_TAG_SIZE` | 16 bytes |
+| Noise prologue | `"2LINK/1"` |
+| `REKEY_FRAMES` | 2^24 |
+| `REKEY_INTERVAL` | 3600 s |
+| `DEFAULT_TCP_PORT` | 47821 |
+| `DISCOVERY_PORT` | 47820 (UDP) |
+| Timers | Section 6.5 |
+
+## 10. Open questions for v0.2
+
+- Payload formats for messaging (Phase 7) and transfer (Phases 2–3).
+- Flow control and priority between transfer streams on the bulk connection (Phase 4).
+- Replay window and connection migration for the UDP transport (V2).
+- Longer verification codes or QR fingerprints instead of the 6-digit SAS.
