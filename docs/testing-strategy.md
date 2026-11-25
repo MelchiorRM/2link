@@ -134,3 +134,96 @@ design review, no automated test).
 | L3 | Modify, delete or reorder a message record | Unit | Hash chain verification fails | 7 | planned |
 | L4 | — | Review | `sodium_memzero` on every key buffer at teardown | 1 | review |
 | L5 | Run integration tests with debug logging; grep logs for key bytes, plaintext markers, SAS | Integration | No match | 1 | planned |
+
+## 5. Reliability tests
+
+| ID | Scenario | Level | Pass criterion | Phase |
+|----|----------|-------|----------------|-------|
+| R1 | Kill the receiver at 10 %, 50 %, 99 % of a 1 GiB transfer; restart; resume | Integration, system | File completes; final hash matches; bytes re-sent ≤ one chunk per in-flight request | 3 |
+| R2 | Drop the TCP connection (reset, cable pull, Wi-Fi off) mid-transfer | System | IK reconnect and resume without user action; same criteria as R1 | 3 |
+| R3 | Sender restarts mid-transfer | Integration | Resume from the persisted bitmap; no verified chunk re-sent | 3 |
+| R4 | Crash during chunk write (kill -9 between write and bitmap update) | Integration | On resume the chunk is re-verified, never trusted blindly | 3 |
+| R5 | Idle peer disappears | Integration (fake clock) | Detected within `IDLE_TIMEOUT` (45 s); state `CLOSED` | 1 |
+| R6 | Both peers connect at once | Integration | Exactly one primary connection survives (spec §6.4) | 1 |
+| R7 | Rekey under load: force `REKEY` every 1 000 frames during a transfer | Integration | No decrypt failures; transfer completes | 1 |
+| R8 | Messages sent while the peer is offline | Integration | Delivered once after reconnect, in order, no duplicates | 7 |
+| R9 | Impairment matrix (5.1) | System | All transfers complete with a correct hash; no crash or hang | 3 |
+
+**"Bytes re-sent"** is measured by counting `CHUNK_DATA` frames per chunk index on
+the sender; any verified chunk sent twice fails R1–R3.
+
+### 5.1 Network impairment matrix (`tc netem`)
+
+Applied to the sender's interface, or to a veth pair between two network namespaces
+for automated runs.
+
+| Delay | Loss | Extra |
+|-------|------|-------|
+| 0 ms | 0 % | — (baseline) |
+| 20 ms ± 5 ms | 0.1 % | — |
+| 100 ms | 1 % | 25 % reordering |
+| 20 ms | 5 % | — |
+| 0 ms | 0 % | Rate limited to 10 Mbit/s |
+| 0 ms | 0 % | Link down for 10 s mid-transfer |
+
+## 6. Performance tests
+
+### 6.1 Method
+
+- **Hardware:** two PCs on a gigabit Ethernet switch, no other traffic. Record CPU
+  model, OS, NIC and link speed with every result.
+- **Builds:** `release` preset only. Never benchmark sanitizer builds.
+- **Repetition:** 5 runs per configuration; report the median and min/max.
+- **Storage:** results are committed to `docs/benchmarks/<date>-<topic>.md` with the
+  raw numbers and the exact commit hash.
+
+### 6.2 Throughput
+
+| ID | Measurement | Target (V1) | Phase |
+|----|-------------|-------------|-------|
+| P1 | `iperf3 -t 30` TCP between the two PCs | Ceiling reference, no target | 2 |
+| P2 | 2Link transfer of a 4 GiB random file, primary → bulk connection, disk to disk | ≥ 80 % of P1 goodput | 2 |
+| P3 | Same as P2 from and to a RAM disk | ≥ 85 % of P1 (isolates disk) | 2 |
+| P4 | Loopback microbenchmark: frame encode + AEAD + parse, one core | Report Gbit/s; must exceed 1 Gbit/s so crypto is not the bottleneck | 1 |
+| P5 | CPU utilization during P2 (sender and receiver) | Report; no target in V1 | 2 |
+
+### 6.3 Latency
+
+| ID | Measurement | Target (V1) | Phase |
+|----|-------------|-------------|-------|
+| L-1 | Chat round-trip (`MSG` → echo), idle link, 1 000 samples | Report p50 / p99 | 1 |
+| L-2 | Chat round-trip while a P2 transfer saturates the link | p99 ≤ 50 ms and ≤ idle p99 + 20 ms | 4 |
+| L-3 | Same as L-2 but chat and bulk on **one** TCP connection | Report; expected to be much worse (shows head-of-line blocking, justifies spec §6.4) | 4 |
+| L-4 | Time from TCP connect to `ESTABLISHED` with IK | Report p50 / p99 | 1 |
+
+L-1 and L-2 timestamps come from one monotonic clock on the sender (round trip), so
+the two PCs need no clock synchronization.
+
+### 6.4 Baseline rule
+
+P1–P5 and L-1–L-4 on plain TCP form the **V1 baseline**. The UDP transport (V2) and
+multipath must report the same measurements against it, and QUIC is measured in the
+same setup as the reference.
+
+## 7. Acceptance tests (V1)
+
+| # | Criterion | Verified by |
+|---|-----------|-------------|
+| 1 | Two PCs pair securely and authenticate on reconnect | H1, H4, H5, system test of pairing + IK reconnect |
+| 2 | Encrypted messages and reliable file transfer | S1, S2, F3, P2 |
+| 3 | Interrupted transfers resume without re-sending verified chunks | R1–R4 |
+| 4 | Chat stays responsive during bulk transfer; concurrent transfers work | L-2, F5, concurrent-transfer integration test |
+| 5 | Offline messages sync after reconnection | R8 |
+| 6 | Measured performance on gigabit Ethernet | P1–P5 report |
+| 7 | All automated correctness and robustness tests pass | CI green on all jobs |
+
+## 8. Definition of done (per feature)
+
+A feature is done when:
+
+1. Its rows in sections 4–6 exist as tests and pass, or are marked `review` with the
+   review recorded in the pull request.
+2. CI passes on Linux (sanitizers), Windows (MSVC) and fuzzing.
+3. Every new parser of remote input has a fuzz target and a seed corpus.
+4. The threat model and this document are updated if the feature adds a threat or
+   changes a limit.
