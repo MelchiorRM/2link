@@ -270,3 +270,159 @@ After successful pairing each side stores, per peer:
   closes the TCP connection. The initiator reports a handshake failure.
 - There is no automatic fallback from IK to XX.
 - On success the connection enters `ESTABLISHED` with no user interaction.
+
+## 5. Session layer
+
+### 5.1 Session keys
+
+When the handshake completes, Noise `Split()` gives two CipherStates:
+
+| CipherState | Direction |
+|-------------|-----------|
+| `c1` | initiator → responder |
+| `c2` | responder → initiator |
+
+Each side encrypts with its sending CipherState and decrypts with its receiving one.
+Keys are never reused across directions or connections.
+
+The Noise library MUST support explicit nonces (`SetNonce`) and `Rekey`, and expose
+the remote static key and the handshake hash.
+
+### 5.2 Frame encryption
+
+Every frame except `HANDSHAKE` is encrypted with ChaCha20-Poly1305:
+
+```
+nonce      = seq                       (Noise ChaChaPoly encoding: 4 zero bytes || LE64(seq))
+ad         = the 28-byte frame header, as sent
+payload    = ciphertext || tag (16 bytes)
+length     = plaintext_length + 16
+```
+
+- The header, including `length`, is authenticated as associated data, so any change
+  to `type`, `stream_id`, `conn_id`, `seq` or `length` makes decryption fail.
+- The sender sets `length` before encrypting.
+- A decryption failure is fatal (`DECRYPT_FAILED`). The plaintext MUST NOT be used.
+
+### 5.3 Sequence numbers and replay protection
+
+- `seq` of encrypted frames starts at `0` in each direction and increases by exactly
+  `1` per frame. It is independent of the handshake frame counter.
+- Over TCP the receiver MUST require `seq == expected_seq`. A duplicate, gap or
+  reordering is fatal (`REPLAY_DETECTED`).
+- `seq = 2^64 - 1` is reserved by Noise and MUST NOT be sent.
+- V2 (UDP) replaces the strict check with a sliding replay window.
+
+### 5.4 Rekeying
+
+- A sender MUST rekey its sending direction after `REKEY_FRAMES` (2^24) frames or
+  `REKEY_INTERVAL` (1 hour) under one key, whichever comes first. It MAY rekey earlier.
+- To rekey, the sender sends `REKEY` (encrypted with the current key), then applies
+  Noise `Rekey()` to its sending CipherState. Frames after `REKEY` use the new key.
+- On decrypting `REKEY`, the receiver applies `Rekey()` to its receiving CipherState.
+- `seq` keeps counting across rekeys and does not reset.
+- Each direction rekeys independently.
+
+## 6. Connection state machine
+
+### 6.1 States
+
+| State | Meaning |
+|-------|---------|
+| `CONNECTING` | TCP connect in progress (initiator only) |
+| `HANDSHAKING` | Exchanging `HANDSHAKE` frames |
+| `AWAIT_CONFIRM` | XX done; waiting for both users to confirm the SAS |
+| `ESTABLISHED` | Authenticated and trusted; application traffic allowed |
+| `CLOSING` | `CLOSE` sent or received; draining |
+| `CLOSED` | Terminal |
+
+### 6.2 Transitions
+
+| From | Event | To |
+|------|-------|----|
+| `CONNECTING` | TCP connected | `HANDSHAKING` |
+| `CONNECTING` | TCP failure or timeout | `CLOSED` |
+| (responder) | TCP accepted | `HANDSHAKING` |
+| `HANDSHAKING` | XX complete | `AWAIT_CONFIRM` |
+| `HANDSHAKING` | IK complete | `ESTABLISHED` |
+| `HANDSHAKING` | Handshake error or `HANDSHAKE_TIMEOUT` | `CLOSED` (TCP close, no frame) |
+| `AWAIT_CONFIRM` | Local confirm and `PAIR_CONFIRM` received | `ESTABLISHED` (peer stored) |
+| `AWAIT_CONFIRM` | Local reject, `PAIR_REJECT` received, or `PAIR_TIMEOUT` | `CLOSING` |
+| `ESTABLISHED` | Local close or fatal error | `CLOSING` (send `CLOSE`) |
+| any keyed state | `CLOSE` received | `CLOSED` |
+| `CLOSING` | `CLOSE` sent and flushed, or 1 s elapsed | `CLOSED` |
+| any | TCP connection lost | `CLOSED` |
+
+### 6.3 Frames allowed per state
+
+| State | Allowed received types |
+|-------|------------------------|
+| `HANDSHAKING` | `HANDSHAKE` |
+| `AWAIT_CONFIRM` | `PAIR_CONFIRM`, `PAIR_REJECT`, `PING`, `PONG`, `CLOSE` |
+| `ESTABLISHED` | All types except `HANDSHAKE`, `PAIR_CONFIRM`, `PAIR_REJECT`, subject to section 6.4 |
+| `CLOSING` | `CLOSE` (others are discarded) |
+
+Any other frame is fatal (`PROTOCOL_ERROR`).
+
+### 6.4 Primary and bulk connections
+
+V1 uses up to two TCP connections per paired peer:
+
+| | Primary | Bulk |
+|-|---------|------|
+| Handshake | XX (pairing) or IK | IK only |
+| `ROLE` | `0` | `1` |
+| Streams | 0 (control), 1 (messaging) | 0 (`PING`, `PONG`, `REKEY`, `CLOSE` only), transfer streams |
+| Opened | First | Only while a primary connection to the same `device_id` is `ESTABLISHED` |
+
+- Each connection runs its own handshake and has its own keys and `conn_id`.
+- A bulk connection without an established primary to the same peer is closed.
+- At most one primary and one bulk connection per peer. If both peers dial at once,
+  the connection whose initiator has the lexicographically lower `device_id` is
+  kept; the other is closed with `DUPLICATE_CONNECTION`.
+- Closing the primary connection closes the bulk connection.
+
+### 6.5 Timers
+
+| Timer | Value | Effect |
+|-------|-------|--------|
+| `CONNECT_TIMEOUT` | 5 s | TCP connect fails |
+| `HANDSHAKE_TIMEOUT` | 10 s | Handshake fails |
+| `PAIR_TIMEOUT` | 120 s | Pairing fails (`PAIRING_TIMEOUT`) |
+| `KEEPALIVE_INTERVAL` | 15 s | Send `PING` after this long without sending |
+| `IDLE_TIMEOUT` | 45 s | Close (`TIMEOUT`) after this long without receiving |
+| `CLOSE_LINGER` | 1 s | Maximum drain time in `CLOSING` |
+
+## 7. Errors
+
+### 7.1 Reporting rules
+
+- **Before session keys exist** (`CONNECTING`, `HANDSHAKING`) errors are never sent
+  on the wire; the TCP connection is simply closed. Unauthenticated error frames
+  could be forged and would give an attacker an oracle.
+- **With session keys**, the side detecting the error sends an encrypted `CLOSE`
+  with the error code, then closes the TCP connection. The receiver of `CLOSE` does
+  not reply.
+- Codes marked *local* are only logged or shown to the user, never sent.
+- A received unknown code is treated as `PROTOCOL_ERROR`.
+
+### 7.2 Error codes
+
+| Code | Name | Meaning |
+|------|------|---------|
+| `0x0000` | `NO_ERROR` | Normal close |
+| `0x0001` | `PROTOCOL_ERROR` | Malformed frame, wrong state, bad field |
+| `0x0002` | `UNSUPPORTED_VERSION` | `version` is not `1` (local) |
+| `0x0003` | `FRAME_TOO_LARGE` | `length` over the limit |
+| `0x0004` | `DECRYPT_FAILED` | AEAD authentication failed |
+| `0x0005` | `REPLAY_DETECTED` | Unexpected `seq` |
+| `0x0006` | `HANDSHAKE_FAILED` | Noise handshake failed (local) |
+| `0x0007` | `UNKNOWN_PEER` | IK from a key not in the trust store (local) |
+| `0x0008` | `IDENTITY_CHANGED` | Possible key change of a known peer (local) |
+| `0x0009` | `PAIRING_REJECTED` | A user rejected the SAS |
+| `0x000A` | `PAIRING_TIMEOUT` | No SAS decision in time |
+| `0x000B` | `RATE_LIMITED` | Pairing attempts throttled (local) |
+| `0x000C` | `TIMEOUT` | Idle timeout |
+| `0x000D` | `DUPLICATE_CONNECTION` | Losing side of a simultaneous connect |
+| `0x000E` | `INVALID_STREAM` | Frame type not valid on its stream or connection role |
+| `0x000F` | `INTERNAL_ERROR` | Local failure |
