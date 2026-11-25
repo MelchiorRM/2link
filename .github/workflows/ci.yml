@@ -15,3 +15,25 @@ jobs:
         run: cmake --build --preset ci -j
       - name: Test
         run: ctest --preset ci
+
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Clang and libFuzzer runtime
+        run: sudo apt-get update && sudo apt-get install -y clang libclang-rt-dev
+      - name: Configure
+        run: cmake --preset fuzz
+      - name: Build
+        run: cmake --build --preset fuzz -j --target fuzz_frame_parser
+      - name: Fuzz frame parser (60 s)
+        run: |
+          mkdir -p corpus-work
+          ./build/fuzz/tests/fuzz/fuzz_frame_parser -max_total_time=60 -max_len=8192 \
+            corpus-work tests/fuzz/corpus
+      - name: Upload crash artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-crashes
+          path: crash-*
