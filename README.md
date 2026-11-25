@@ -24,7 +24,7 @@ apps/cli/        command-line front end (first implementation target)
 src/core/        shared types, version, utilities
 src/framing/     frame format, serialization, bounds-checked parser
 tests/           GoogleTest unit tests (CTest)
-docs/            protocol spec, threat model
+docs/            protocol-spec.md, threat-model.md
 ```
 
 Planned modules, added in their phase: `src/crypto` (libsodium + Noise),
