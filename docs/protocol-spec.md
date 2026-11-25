@@ -143,3 +143,125 @@ until the persistent message format replaces it.
 | `0x28` | `TRANSFER_RESUME` | yes | Phase 3 |
 
 Value `0x00` and all unlisted values are invalid in v0.1.
+
+## 4. Identity, handshake and pairing
+
+### 4.1 Device identity
+
+- Each installation generates one persistent Curve25519 static key pair. The private
+  key MUST stay on the device, in the OS secure keystore (libsecret, Windows DPAPI).
+- `device_id = BLAKE2b-256(static_public_key)` (32 bytes). A changed key gives a
+  changed `device_id`.
+- Display form: the first 8 bytes of `device_id` as lowercase hex in four groups of
+  four characters, e.g. `3fa1-09bc-77de-0142`.
+
+### 4.2 Handshake framing
+
+Noise messages travel in `HANDSHAKE` frames on stream 0, one Noise message per
+frame. `seq` is `0, 1, 2` for successive handshake frames in the connection,
+counted across both directions. The payload is:
+
+```
+kind: u8 | noise_message: [length - 1] u8
+```
+
+| `kind` | Meaning | Noise pattern |
+|--------|---------|---------------|
+| `0x01` | `PAIR` | `Noise_XX_25519_ChaChaPoly_BLAKE2b` |
+| `0x02` | `RECONNECT` | `Noise_IK_25519_ChaChaPoly_BLAKE2b` |
+
+Every `HANDSHAKE` frame in a connection MUST carry the same `kind`.
+
+**Prologue.** Both patterns use the prologue `"2LINK/1"` (7 ASCII bytes). A peer
+using a different prologue fails the handshake.
+
+### 4.3 Handshake payloads
+
+The Noise payloads that are encrypted (XX messages 2 and 3, IK messages 1 and 2)
+carry a TLV list. XX message 1 carries an empty payload.
+
+```
+tag: u8 | len: u16 | value: [len] u8     (repeated)
+```
+
+| Tag | Name | Value | Rule |
+|-----|------|-------|------|
+| `0x01` | `DEVICE_NAME` | UTF-8, 1..64 bytes | Required |
+| `0x02` | `ROLE` | u8: `0` primary, `1` bulk | Required |
+| `0x03` | `FEATURES` | u32 bitmask, `0` in v0.1 | Optional |
+
+- A duplicate tag, a missing required tag, or a malformed value is fatal.
+- Unknown tags MUST be ignored, so that later versions can add fields.
+- `ROLE = bulk` is only valid with `kind = RECONNECT` (section 6.4).
+
+### 4.4 First pairing: Noise XX
+
+```
+-> e
+<- e, ee, s, es       payload: TLV (responder identity)
+-> s, se              payload: TLV (initiator identity)
+```
+
+After message 3 both sides have the authenticated remote static key and the
+handshake hash `h`. The connection enters `AWAIT_CONFIRM` (section 6).
+
+### 4.5 Short authentication string (SAS)
+
+```
+d   = BLAKE2b-256("2link sas v1" || h)
+n   = (first 5 bytes of d as big-endian u40) mod 1 000 000
+SAS = n as 6 decimal digits, zero-padded, shown as "123 456"
+```
+
+- Both devices display the SAS. Each user compares the two screens and confirms or
+  rejects on their own device.
+- Confirming sends `PAIR_CONFIRM`. Rejecting sends `PAIR_REJECT` with code
+  `PAIRING_REJECTED`, then `CLOSE`.
+- Pairing succeeds only when a side has both confirmed locally **and** received the
+  peer's `PAIR_CONFIRM`. Then each side stores the peer record (section 4.7).
+- No frame other than `PAIR_CONFIRM`, `PAIR_REJECT`, `PING`, `PONG` and `CLOSE` is
+  allowed before pairing succeeds.
+- The 40-bit reduction keeps the modulo bias below 2^-20.
+
+The SAS is a verification code, not a password. A man-in-the-middle must run two
+separate handshakes, which produce two different codes, so the mismatch is visible.
+An attacker gets one guess (about 2^-20) per pairing attempt.
+
+### 4.6 Pairing limits
+
+- At most one pairing attempt is in progress per device at a time.
+- Each attempt uses a fresh XX handshake; a SAS is never reused.
+- The user must decide within `PAIR_TIMEOUT` (120 s) or the attempt fails with
+  `PAIRING_TIMEOUT`.
+- After 3 failed attempts within 10 minutes, a device refuses new pairing attempts
+  for 10 minutes. It closes those TCP connections without a handshake.
+
+### 4.7 Trust store
+
+After successful pairing each side stores, per peer:
+
+| Field | Content |
+|-------|---------|
+| `device_id` | 32 bytes |
+| `name` | From `DEVICE_NAME` |
+| `static_public_key` | 32 bytes, pinned |
+| `first_paired_at` | UTC timestamp |
+| `trust` | `verified` |
+
+### 4.8 Reconnection: Noise IK
+
+```
+<- s                  (pre-known: the pinned responder key)
+...
+-> e, es, s, ss       payload: TLV (initiator identity)
+<- e, ee, se          payload: TLV (responder identity)
+```
+
+- The initiator only uses `RECONNECT` with a peer in its trust store.
+- The responder MUST look up the initiator's static key in its trust store. If the
+  key is absent it closes with `UNKNOWN_PEER`.
+- If a known `device_id` presents a different static key (for example a peer found by
+  discovery with a matching name), the connection is refused with `IDENTITY_CHANGED`.
+  It stays refused until the user explicitly re-pairs with XX.
+- There is no automatic fallback from IK to XX.
+- On success the connection enters `ESTABLISHED` with no user interaction.
