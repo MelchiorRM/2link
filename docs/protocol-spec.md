@@ -247,14 +247,41 @@ The SAS is a verification code, not a password. A man-in-the-middle must run two
 separate handshakes, which produce two different codes, so the mismatch is visible.
 An attacker gets one guess (about 2^-20) per pairing attempt.
 
-### 4.6 Pairing limits
+### 4.6 Pairing window and limits
 
-- At most one pairing attempt is in progress per device at a time.
+**Pairing window.**
+
+- A device accepts incoming `PAIR` handshakes only while its user has explicitly
+  opened a local pairing window (for example `2link pair --listen`).
+- The window closes after `PAIR_WINDOW` (5 min), after one successful pairing, or
+  when the user closes it, whichever comes first.
+- Outside the window, a `PAIR` handshake is refused: the TCP connection is closed
+  after the first `HANDSHAKE` frame, with no reply. `RECONNECT` from trusted peers
+  is not affected.
+- Starting an outgoing pairing is always an explicit user action, never automatic
+  (for example, never triggered by discovery).
+
+**Bounded concurrency.**
+
+- At most one pairing per device is in `AWAIT_CONFIRM` at a time.
+- At most `MAX_PAIR_HANDSHAKES` (4) `PAIR` connections are in `HANDSHAKING` at a
+  time. Further `PAIR` connections are closed without a reply.
 - Each attempt uses a fresh XX handshake; a SAS is never reused.
 - The user must decide within `PAIR_TIMEOUT` (120 s) or the attempt fails with
   `PAIRING_TIMEOUT`.
-- After 3 failed attempts within 10 minutes, a device refuses new pairing attempts
-  for 10 minutes. It closes those TCP connections without a handshake.
+
+**Per-source rate limiting.**
+
+- The source of an attempt is the remote IP address.
+- An attempt fails if the SAS is rejected, the decision times out, the handshake
+  fails, or the connection closes before pairing succeeds.
+- After `PAIR_FAIL_LIMIT` (3) failed attempts from one source within
+  `PAIR_FAIL_PERIOD` (10 min), new `PAIR` attempts from that source are refused for
+  `PAIR_BLOCK` (10 min) (`RATE_LIMITED`, local).
+- The limiter state is bounded to `PAIR_SOURCE_TABLE` (256) sources; the
+  least recently seen entry is evicted first.
+- There is no global lockout: failures from one source never block pairing from
+  another.
 
 ### 4.7 Trust store
 
@@ -422,6 +449,7 @@ V1 uses up to two TCP connections per paired peer:
 | `CONNECT_TIMEOUT` | 5 s | TCP connect fails |
 | `HANDSHAKE_TIMEOUT` | 10 s | Handshake fails |
 | `PAIR_TIMEOUT` | 120 s | Pairing fails (`PAIRING_TIMEOUT`) |
+| `PAIR_WINDOW` | 5 min | Local pairing window closes (section 4.6) |
 | `KEEPALIVE_INTERVAL` | 15 s | Send `PING` after this long without sending |
 | `IDLE_TIMEOUT` | 45 s | Close (`TIMEOUT`) after this long without receiving |
 | `CLOSE_LINGER` | 1 s | Maximum drain time in `CLOSING` |
@@ -507,6 +535,7 @@ mDNS may replace UDP broadcast in a later version.
 | `DEFAULT_TCP_PORT` | 47821 |
 | `DISCOVERY_PORT` | 47820 (UDP) |
 | Timers | Section 6.5 |
+| Pairing limits | Section 4.6 (`MAX_PAIR_HANDSHAKES` 4, `PAIR_FAIL_LIMIT` 3 per 10 min, `PAIR_BLOCK` 10 min, `PAIR_SOURCE_TABLE` 256) |
 
 ## 10. Open questions for v0.2
 

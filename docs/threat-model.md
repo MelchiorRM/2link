@@ -86,14 +86,14 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | ID | Threat | Actor | Mitigation | Verified by |
 |----|--------|-------|------------|-------------|
 | H1 | MITM during first pairing | T3 | Noise XX + 6-digit SAS from the handshake hash. Two separate handshakes produce different codes (spec §4.5). | Integration test: relay attacker yields mismatched SAS |
-| H2 | Attacker guesses the SAS | T3 | One guess per attempt (~2^-20); fresh handshake per attempt; 3 failures in 10 min → 10 min lockout (spec §4.6) | Unit test of the rate limiter |
+| H2 | Attacker guesses the SAS | T3 | One guess per attempt (~2^-20); fresh handshake per attempt; pairing only inside an explicit local window; one attempt awaiting confirmation at a time; per-source limit of 3 failures in 10 min → that source blocked for 10 min (spec §4.6) | Unit test of the rate limiter |
 | H3 | User confirms without comparing | T3 | Residual risk (section 8). UI shows the code prominently and requires an explicit action on both sides. | Manual / UI review |
 | H4 | Changed key passed off as a known peer | T2, T4 | `device_id` is derived from the key, so a new key is an unknown device. Trust never carries over; the UI warns on a name match; trust only after explicit re-pairing (spec §4.8). | Integration test: same name, new key → unverified + warning; IK refused |
 | H5 | Unpaired device connects with IK | T4 | Responder requires the initiator key in its trust store; otherwise TCP close (spec §4.8) | Integration test |
 | H6 | Forged error during handshake (oracle, downgrade) | T2 | No error frames before keys exist; connection is just closed (spec §7.1) | Unit test: handshake state never emits a plaintext error |
 | H7 | Version or pattern downgrade | T2 | Single version; prologue `"2LINK/1"` binds the transcript; `kind` must stay constant; no IK → XX fallback; unknown critical TLV fields are rejected rather than silently ignored (spec §4.3) | Unit tests |
 | H8 | Handshake replay | T2 | Fresh ephemeral keys per handshake; replayed messages fail Noise | Integration test |
-| H9 | Many half-open handshakes exhaust resources | T6 | `HANDSHAKE_TIMEOUT` 10 s; cap on concurrent handshakes; one pairing at a time | Load test |
+| H9 | Many half-open handshakes exhaust resources | T6 | `HANDSHAKE_TIMEOUT` 10 s; `PAIR` refused outside the pairing window; at most 4 concurrent `PAIR` handshakes and one awaiting confirmation; bounded limiter table. An attacker can still occupy the slots while a window is open, which delays but cannot complete pairing without the user confirming a code | Load test |
 | H10 | Key confusion between devices | T5 | Keys are per connection and direction; peer identity is the authenticated Noise static key, never a name or announced ID | Code review, unit test |
 
 ### 6.3 Session and framing
@@ -151,7 +151,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | Risk | Impact | Why accepted / follow-up |
 |------|--------|--------------------------|
 | User confirms the SAS without comparing (H3) | MITM succeeds at pairing | Usability limit; consider a QR fingerprint or longer code in v0.2 |
-| 6-digit SAS (~20 bits) | 1 in 10^6 MITM success per attempt | One guess per attempt plus rate limiting; longer code later |
+| 6-digit SAS (~20 bits) | 1 in 10^6 MITM success per attempt | One guess per attempt, explicit pairing window, per-source rate limiting; longer code later |
 | Malicious paired device (T5) | Can send hostile but well-formed content | Mitigated by input validation (F1–F5, S6–S8), not by crypto. Users should only pair devices they control. |
 | Injected TCP resets (S10) | Sessions drop | Fast IK reconnect and transfer resume |
 | Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
