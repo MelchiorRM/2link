@@ -131,3 +131,39 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | L3 | Message log tampering | T7 | Hash-chained records give tamper evidence only (Phase 7) | Unit test |
 | L4 | Keys left in memory or swap | T7 | `sodium_memzero` on session teardown; `sodium_mlock` for long-term keys where supported | Code review |
 | L5 | Secrets in logs | Implementation bug | Never log keys, plaintext, or SAS values; log device IDs in display form only | Code review, log-grep test |
+
+## 7. Out of scope for V1
+
+| Item | Reason |
+|------|--------|
+| Attackers with root/admin or physical access to an endpoint | Can read the keystore and memory; no endpoint software defends this |
+| Compromised OS, keystore or cryptographic libraries | Assumption (section 5) |
+| Traffic analysis (timing, sizes, who talks to whom) | No padding or cover traffic in V1 |
+| Hiding device presence on the LAN | Discovery is public by design (D5) |
+| Internet attackers, NAT traversal, relays | V2 / V3 |
+| Group messaging, multi-device accounts | Non-goals |
+| Post-quantum security | Curve25519 only; revisit when vetted PQ Noise patterns are available |
+| Denial of service by an on-path attacker dropping all traffic | Cannot be prevented; only detected (idle timeout) |
+| Side channels in cryptographic primitives | Delegated to libsodium |
+
+## 8. Residual risks
+
+| Risk | Impact | Why accepted / follow-up |
+|------|--------|--------------------------|
+| User confirms the SAS without comparing (H3) | MITM succeeds at pairing | Usability limit; consider a QR fingerprint or longer code in v0.2 |
+| 6-digit SAS (~20 bits) | 1 in 10^6 MITM success per attempt | One guess per attempt plus rate limiting; longer code later |
+| Malicious paired device (T5) | Can send hostile but well-formed content | Mitigated by input validation (F1–F5, S6–S8), not by crypto. Users should only pair devices they control. |
+| Injected TCP resets (S10) | Sessions drop | Fast IK reconnect and transfer resume |
+| Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
+| Device names leak on the LAN (D5) | Presence and naming visible | Users choose neutral names |
+
+## 9. Maintenance
+
+Update this document when:
+
+- the protocol spec changes version;
+- a new transport (UDP, relay) or feature (multipath, sync) is added;
+- a security bug is found: add the threat, its mitigation and a regression test.
+
+Each threat ID stays stable so tests and commits can reference it (e.g. `test: F1
+path traversal corpus`).
