@@ -7,8 +7,21 @@ Status: **Phase 0 — foundation**.
 
 ## Build
 
-Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git.
-Dependencies are fetched by CMake (GoogleTest for now).
+Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git,
+and [vcpkg](https://github.com/microsoft/vcpkg). Dependencies (libsodium, GoogleTest)
+are declared in `vcpkg.json` and installed by vcpkg during the first configure.
+
+One-time vcpkg setup (Linux also needs `curl zip unzip tar pkg-config`, plus
+`autoconf autoconf-archive automake libtool` for vcpkg's libsodium build):
+
+```bash
+git clone https://github.com/microsoft/vcpkg ~/vcpkg
+~/vcpkg/bootstrap-vcpkg.sh -disableMetrics      # Windows: bootstrap-vcpkg.bat
+export VCPKG_ROOT=~/vcpkg                        # add to your shell profile
+```
+
+The presets read `VCPKG_ROOT`. Package versions are pinned by `builtin-baseline` in
+`vcpkg.json`, not by your vcpkg checkout.
 
 ```bash
 cmake --preset debug          # or: asan, release

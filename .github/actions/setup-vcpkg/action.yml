@@ -1,0 +1,45 @@
+name: Set up vcpkg
+description: >
+  Clone vcpkg at the builtin-baseline pinned in vcpkg.json, bootstrap it, and
+  restore the binary cache. Sets VCPKG_ROOT for the CMake presets.
+
+runs:
+  using: composite
+  steps:
+    - name: Read baseline and set paths
+      id: vars
+      shell: bash
+      run: |
+        baseline=$(sed -n 's/.*"builtin-baseline": *"\([0-9a-f]\{40\}\)".*/\1/p' vcpkg.json)
+        test -n "$baseline" || { echo "no builtin-baseline in vcpkg.json"; exit 1; }
+        echo "baseline=$baseline" >> "$GITHUB_OUTPUT"
+        echo "VCPKG_ROOT=$RUNNER_TEMP/vcpkg" >> "$GITHUB_ENV"
+        echo "VCPKG_DEFAULT_BINARY_CACHE=$RUNNER_TEMP/vcpkg-cache" >> "$GITHUB_ENV"
+        echo "VCPKG_DISABLE_METRICS=1" >> "$GITHUB_ENV"
+        mkdir -p "$RUNNER_TEMP/vcpkg-cache"
+
+    - name: Install autotools (libsodium port, Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: sudo apt-get update && sudo apt-get install -y autoconf autoconf-archive automake libtool
+
+    - name: Restore vcpkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ runner.temp }}/vcpkg-cache
+        key: vcpkg-${{ runner.os }}-${{ github.job }}-${{ hashFiles('vcpkg.json') }}
+        restore-keys: |
+          vcpkg-${{ runner.os }}-${{ github.job }}-
+          vcpkg-${{ runner.os }}-
+
+    - name: Clone and bootstrap vcpkg
+      shell: bash
+      run: |
+        git init -q "$VCPKG_ROOT"
+        git -C "$VCPKG_ROOT" fetch -q --depth 1 https://github.com/microsoft/vcpkg ${{ steps.vars.outputs.baseline }}
+        git -C "$VCPKG_ROOT" checkout -q FETCH_HEAD
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          "$VCPKG_ROOT/bootstrap-vcpkg.bat" -disableMetrics
+        else
+          "$VCPKG_ROOT/bootstrap-vcpkg.sh" -disableMetrics
+        fi
