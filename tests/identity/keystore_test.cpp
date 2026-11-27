@@ -151,19 +151,27 @@ TEST_F(FileKeystoreTest, DamagedFileIsCorrupt) {
   const Bytes good = read_file(p);
   std::optional<SecretKey> out;
 
-  Bytes flipped = good;
-  flipped[20] ^= 0x01;  // inside the secret / blob
-  write_file(p, flipped);
-  EXPECT_EQ(ks.load("identity", out), KeystoreStatus::kCorrupt);
+  auto expect_corrupt = [&](const Bytes& damaged, const char* what) {
+    write_file(p, damaged);
+    out.reset();
+    EXPECT_EQ(ks.load("identity", out), KeystoreStatus::kCorrupt) << what;
+    EXPECT_FALSE(out.has_value()) << what;
+  };
 
+  // Last byte: the checksum (POSIX) or DPAPI's MAC (Windows). Bytes in the
+  // DPAPI blob header are not authenticated and do not change the secret.
+  Bytes last = good;
+  last.back() ^= 0x01;
+  expect_corrupt(last, "last byte flipped");
+#ifndef _WIN32
+  Bytes secret_byte = good;
+  secret_byte[20] ^= 0x01;  // inside the secret
+  expect_corrupt(secret_byte, "secret byte flipped");
+#endif
   Bytes bad_magic = good;
   bad_magic[0] = 'X';
-  write_file(p, bad_magic);
-  EXPECT_EQ(ks.load("identity", out), KeystoreStatus::kCorrupt);
-
-  write_file(p, Bytes(good.begin(), good.begin() + 10));  // truncated
-  EXPECT_EQ(ks.load("identity", out), KeystoreStatus::kCorrupt);
-  EXPECT_FALSE(out.has_value());
+  expect_corrupt(bad_magic, "bad magic");
+  expect_corrupt(Bytes(good.begin(), good.begin() + 10), "truncated");
 }
 
 TEST_F(FileKeystoreTest, InvalidNamesNeverTouchTheDisk) {
