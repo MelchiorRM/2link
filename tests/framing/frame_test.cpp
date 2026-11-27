@@ -26,8 +26,8 @@ FrameError decode(const std::array<std::uint8_t, kHeaderSize>& bytes) {
 
 TEST(FrameHeader, ConstantsMatchSpec) {
   EXPECT_EQ(kHeaderSize, 28u);
-  EXPECT_EQ(kMaxPayload, 524288u);
-  EXPECT_EQ(kMaxHandshakePayload, 65535u);
+  EXPECT_EQ(kMaxPayload, 65535u);
+  EXPECT_EQ(kMaxFrameSize, 65563u);
   EXPECT_EQ(kAeadTagSize, 16u);
 }
 

@@ -107,7 +107,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | S3 | Replay, drop or reorder of frames | T2 | Strict `seq == expected` over TCP (spec §5.3) | Unit tests: duplicate, gap, reorder → fatal |
 | S4 | Nonce reuse | Implementation bug | Nonces come only from the Noise CipherState counter, which advances once per frame and never resets (not even on rekey); `seq` must equal it; keys per direction; counter `2^64-1` never reached | Unit tests, code review |
 | S5 | Frames spliced from another connection | T2 | `conn_id` in authenticated header; separate keys per connection | Unit test |
-| S6 | Oversized `length` causes huge allocation | T2, T5 | Header validated before allocation; `MAX_PAYLOAD` 512 KiB; parser buffer bounded (spec §2.1, §2.4) | Unit tests, fuzzing |
+| S6 | Oversized `length` causes huge allocation | T2, T5 | Header validated before allocation; `MAX_PAYLOAD` 64 KiB (65 535 bytes); parser buffer bounded (spec §2.1, §2.4) | Unit tests, fuzzing |
 | S7 | Malformed frames trigger memory bugs | T2, T5 | Bounds-checked parsing; ASan/UBSan in CI; fuzzing the frame parser | Fuzz target, sanitizer CI |
 | S8 | Frame valid in the wrong state or stream | T5 | Per-state and per-stream allowed-type tables (spec §2.2, §6.3) | Unit tests per table entry |
 | S9 | Long-lived key compromise exposes all traffic | T1 + later key theft | Ephemeral DH gives forward secrecy; periodic rekey limits per-key volume | Design review |
