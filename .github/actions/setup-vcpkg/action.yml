@@ -18,10 +18,12 @@ runs:
         echo "VCPKG_DISABLE_METRICS=1" >> "$GITHUB_ENV"
         mkdir -p "$RUNNER_TEMP/vcpkg-cache"
 
-    - name: Install autotools (libsodium port, Linux)
+    - name: Install system packages (Linux, requirements.txt)
       if: runner.os == 'Linux'
       shell: bash
-      run: sudo apt-get update && sudo apt-get install -y autoconf autoconf-archive automake libtool
+      run: |
+        sudo apt-get update
+        sed 's/#.*//' requirements.txt | xargs sudo apt-get install -y
 
     - name: Restore vcpkg binary cache
       uses: actions/cache@v4

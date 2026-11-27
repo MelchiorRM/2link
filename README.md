@@ -3,16 +3,24 @@
 Two-PC secure messaging and file-transfer protocol: a custom application protocol,
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
-Status: **Phase 0 — foundation**.
+Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
+(crypto, identity and session layers done).
 
 ## Build
 
 Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git,
-and [vcpkg](https://github.com/microsoft/vcpkg). Dependencies (libsodium, GoogleTest)
-are declared in `vcpkg.json` and installed by vcpkg during the first configure.
+and [vcpkg](https://github.com/microsoft/vcpkg). Library dependencies (libsodium,
+GoogleTest) are declared in `vcpkg.json` and installed by vcpkg during the first
+configure; noise-c is fetched at a pinned commit by CMake.
 
-One-time vcpkg setup (Linux also needs `curl zip unzip tar pkg-config`, plus
-`autoconf autoconf-archive automake libtool` for vcpkg's libsodium build):
+On Debian/Ubuntu, install the system packages listed in
+[`requirements.txt`](requirements.txt):
+
+```bash
+sed 's/#.*//' requirements.txt | xargs sudo apt-get install -y
+```
+
+One-time vcpkg setup:
 
 ```bash
 git clone https://github.com/microsoft/vcpkg ~/vcpkg

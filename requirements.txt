@@ -1,0 +1,25 @@
+# System packages needed to build 2Link on Debian/Ubuntu (tested on Ubuntu 24.04).
+# Install with:
+#   sed 's/#.*//' requirements.txt | xargs sudo apt-get install -y
+#
+# Library dependencies (libsodium, GoogleTest) are NOT listed here: vcpkg
+# installs them from vcpkg.json. Windows needs Visual Studio 2022 (MSVC 19.36+),
+# CMake >= 3.25 and Git instead.
+
+# Toolchain: C++20 compiler (GCC 13+), CMake >= 3.25, Git
+build-essential
+cmake
+git
+
+# vcpkg bootstrap and downloads
+curl
+zip
+unzip
+tar
+pkg-config
+
+# vcpkg's libsodium port builds with autotools
+autoconf
+autoconf-archive
+automake
+libtool
