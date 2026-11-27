@@ -15,8 +15,7 @@ namespace twolink::framing {
 
 // §2.1 size limits.
 inline constexpr std::size_t kHeaderSize = 28;
-inline constexpr std::size_t kMaxPayload = 512 * 1024;
-inline constexpr std::size_t kMaxHandshakePayload = 65535;
+inline constexpr std::size_t kMaxPayload = 65535;  // Noise message limit, every frame type
 inline constexpr std::size_t kAeadTagSize = 16;
 inline constexpr std::size_t kMaxFrameSize = kHeaderSize + kMaxPayload;
 
@@ -113,7 +112,8 @@ enum class FrameError : std::uint8_t {
   return is_encrypted(type) ? kAeadTagSize : 1;  // HANDSHAKE carries at least the kind byte
 }
 [[nodiscard]] constexpr std::size_t max_payload(FrameType type) noexcept {
-  return is_encrypted(type) ? kMaxPayload : kMaxHandshakePayload;
+  static_cast<void>(type);  // same limit for every type in v0.1.1
+  return kMaxPayload;
 }
 
 // Checks every header rule that does not need connection state.
