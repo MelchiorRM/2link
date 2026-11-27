@@ -85,15 +85,15 @@ design review, no automated test).
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
 | H1 | Relay attacker runs separate XX handshakes with each side | Integration | The two SAS values differ; neither side stores the attacker key unless confirmed | 1 | planned |
-| H1 | SAS known-answer vectors (fixed `h` → expected 6 digits) | Unit | Matches spec §4.5 exactly, incl. zero padding | 1 | planned |
+| H1 | SAS known-answer vectors (fixed `h` → expected 6 digits) | Unit | Matches spec §4.5 exactly, incl. zero padding | 1 | done |
 | H2 | 3 failed pairings from source A in 10 min, then a 4th from A and one from B | Unit (fake clock) | A refused without handshake, B accepted; A accepted again after 10 min; limiter table capped at 256 sources | 1 | planned |
 | H2 | `PAIR` outside the pairing window; window expiry; window after a successful pairing | Unit (fake clock) | Refused outside the window; window closes after 5 min or one success; `RECONNECT` unaffected | 1 | planned |
 | H3 | — | Review | UI requires explicit confirm on both sides | 8 | review |
 | H4 | Peer reappears with the same name and a new key | Integration | Shown as unknown + identity-change warning; IK refused; old record kept until explicit re-pair | 1 | planned |
 | H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | planned |
-| H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | planned |
-| H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | planned |
-| H7 | TLV list: unknown optional tag (`0x7F`), unknown critical tag (`0x80`, `0xFF`), duplicate known and unknown tags, missing required tag, truncated value | Unit, fuzz | Optional ignored; every other case rejects the whole list | 1 | planned |
+| H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | done (handshake engine); state machine in 1.5 |
+| H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | unit done; integration in 1.10 |
+| H7 | TLV list: unknown optional tag (`0x7F`), unknown critical tag (`0x80`, `0xFF`), duplicate known and unknown tags, missing required tag, truncated value | Unit, fuzz | Optional ignored; every other case rejects the whole list | 1 | done (`fuzz_handshake_payload`) |
 | H8 | Replay a captured handshake message | Integration | Handshake fails | 1 | planned |
 | H9 | Open many TCP connections that never complete the handshake | Integration (fake clock) | At most 4 `PAIR` handshakes and one `AWAIT_CONFIRM` at a time; extra connections closed; all time out after 10 s; memory bounded | 1 | planned |
 | H10 | Two peers connected at once | Integration | Frames from peer A's connection never decrypt under peer B's keys; identity always from the Noise static key | 1 | planned |

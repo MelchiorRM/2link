@@ -56,6 +56,7 @@ src/framing/     frame format, serialization, bounds-checked parser
 src/crypto/      libsodium + noise-c wrapper (keys, handshakes, CipherState)
 src/identity/    device identity, device_id, keystore
 src/session/     encrypted frames, seq/replay checks, rekeying
+src/handshake/   HANDSHAKE frames, XX/IK driver, TLV payloads, SAS
 third_party/     pinned noise-c build and 2Link's shim
 tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md, testing-strategy.md
