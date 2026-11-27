@@ -1,4 +1,4 @@
-# 2Link Protocol Specification v0.1.1
+# 2Link Protocol Specification v0.1.2
 
 Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
 TCP). The Noise library proof-of-concept confirmed sections 4 and 5
@@ -6,6 +6,8 @@ TCP). The Noise library proof-of-concept confirmed sections 4 and 5
 
 v0.1.1 (2026-11-27) is an erratum to v0.1: encrypted frames are limited to the Noise
 message size of 65 535 bytes (section 2.1, section 11). Nothing else changes.
+v0.1.2 (2026-11-27) rewords where the private key is stored (section 4.1); this is
+local storage only, with no change on the wire.
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -169,7 +171,10 @@ Value `0x00` and all unlisted values are invalid in v0.1.
 ### 4.1 Device identity
 
 - Each installation generates one persistent Curve25519 static key pair. The private
-  key MUST stay on the device, in the OS secure keystore (libsecret, Windows DPAPI).
+  key MUST stay on the device and MUST NOT be readable by other users of it: on
+  Windows it is encrypted with DPAPI for the current user; on Linux, in V1, it is
+  kept in a file only its owner can read (`0600`, like an SSH key). A Secret Service
+  (libsecret) backend may replace the Linux file later.
 - `device_id = BLAKE2b-256(static_public_key)` (32 bytes). A changed key gives a
   changed `device_id`.
 - The full 32-byte `device_id` is the device's identity. Storage, lookups,
@@ -597,3 +602,7 @@ mDNS may replace UDP broadcast in a later version.
   enforces it. The PoC did not catch this because its frames were small.
   `MAX_PAYLOAD` is now 65 535 bytes for every frame type; 256 KiB file chunks span
   several frames; the message size limit is 60 KiB.
+- **Key storage on Linux (v0.1.2, 2026-11-27):** v0.1 required libsecret, but
+  under WSL there is usually no Secret Service, and libsecret brings glib and
+  libgcrypt. V1 stores the key in an owner-only file on Linux and keeps DPAPI on
+  Windows (section 4.1, threat model L1).

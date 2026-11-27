@@ -133,7 +133,8 @@ design review, no automated test).
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
-| L1 | — | Review | Private key only goes through the keystore API | 1 | review |
+| L1 | Store, then load with the file made group/other-readable, replaced by a symlink or a directory; store into a group-writable directory; store twice; damage the file | Unit | Stored file `0600` in a `0700` directory; every unsafe case `kInsecurePermissions`; second store `kAlreadyExists` and the original kept; damage `kCorrupt`; on Windows the raw secret never appears in the file | 1 | done |
+| L1 | — | Review | Private key only goes through the keystore API; a damaged key is never replaced automatically | 1 | review |
 | L2 | Edit the trust store file | Unit | Integrity check fails; store refused | 1 | planned |
 | L2 | File permissions after creation | Unit (Linux) | `0600` | 1 | planned |
 | L3 | Modify, delete or reorder a message record | Unit | Hash chain verification fails | 7 | planned |

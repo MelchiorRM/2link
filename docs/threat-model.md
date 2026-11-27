@@ -57,8 +57,8 @@ there.
 
 ## 5. Assumptions
 
-- The operating system, the keystore (libsecret, DPAPI) and the user account
-  running 2Link are not compromised.
+- The operating system, the key storage (DPAPI on Windows, file permissions on
+  Linux) and the user account running 2Link are not compromised.
 - libsodium, noise-c (pinned at `cfe2541`) and BLAKE3 are correctly implemented.
   2Link's own `Rekey()` shim is not covered by this assumption; it is our code and
   is verified by X2.
@@ -130,7 +130,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 
 | ID | Threat | Actor | Mitigation | Verified by |
 |----|--------|-------|------------|-------------|
-| L1 | Private key theft from disk | T7 | Stored in the OS keystore, never in a plain file | Code review |
+| L1 | Private key theft from disk | T7 | Windows: encrypted with DPAPI for the current user. Linux (V1): owner-only file (`0600` in a `0700` directory); loading refuses a file that is a symlink, not a regular file, not owned by the user, or accessible to group or others, and storing refuses a directory others can write to. Secrets are never overwritten. | Unit tests (permissions, symlink, corruption, no overwrite), code review |
 | L2 | Trust store tampering (pinning an attacker key) | T7 | File permissions `0600` / user-only ACL; the trust store is integrity-checked with a key from the keystore | Unit test |
 | L3 | Message log tampering | T7 | Hash-chained records give tamper evidence only (Phase 7) | Unit test |
 | L4 | Keys left in memory or swap | T7 | `sodium_memzero` on session teardown; `sodium_mlock` for long-term keys where supported | Code review |
@@ -175,6 +175,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | Injected TCP resets (S10) | Sessions drop | Fast IK reconnect and transfer resume |
 | Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
 | Device names leak on the LAN (D5) | Presence and naming visible | Users choose neutral names |
+| Private key readable by the user's own processes on Linux (L1) | Malware running as the user can copy the identity key and impersonate the device | Same exposure as an SSH key; an unlocked Secret Service keyring is readable by those processes too. Out of scope like other endpoint compromise; a libsecret backend may follow |
 | Unmaintained Noise library (X1) | Upstream security fixes will not arrive | Pinned and reviewed in-house; conformance tests in CI; revisit if a maintained, MSVC-capable library appears |
 
 ## 9. Maintenance
