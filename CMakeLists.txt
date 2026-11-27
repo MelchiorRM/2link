@@ -32,6 +32,7 @@ add_subdirectory(src/core)
 add_subdirectory(src/framing)
 add_subdirectory(src/crypto)
 add_subdirectory(src/identity)
+add_subdirectory(src/session)
 add_subdirectory(apps/cli)
 
 if(TWOLINK_BUILD_TESTS)
