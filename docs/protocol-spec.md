@@ -1,8 +1,11 @@
-# 2Link Protocol Specification v0.1
+# 2Link Protocol Specification v0.1.1
 
 Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
 TCP). The Noise library proof-of-concept confirmed sections 4 and 5
 (`poc/noise-c/RESULTS.md`). Changes from here on go into v0.2.
+
+v0.1.1 (2026-11-27) is an erratum to v0.1: encrypted frames are limited to the Noise
+message size of 65 535 bytes (section 2.1, section 11). Nothing else changes.
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -57,19 +60,21 @@ Every byte on a 2Link TCP connection belongs to a frame. A frame is a fixed
 | Constant | Value |
 |----------|-------|
 | `HEADER_SIZE` | 28 bytes |
-| `MAX_PAYLOAD` | 524 288 bytes (512 KiB) |
+| `MAX_PAYLOAD` | 65 535 bytes (the Noise message limit) |
 | `AEAD_TAG_SIZE` | 16 bytes |
-| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes (`kind` byte + Noise message) |
 
 - A receiver MUST validate the full header before reading or allocating for the
   payload. A `length` above the limit for the frame type is fatal.
-- An encrypted frame's `length` MUST be at least `AEAD_TAG_SIZE` and at most
-  `MAX_PAYLOAD`.
-- A `HANDSHAKE` frame's `length` MUST be at least 1 and at most
-  `MAX_HANDSHAKE_PAYLOAD`, so a Noise message is at most 65 534 bytes (section 4.2).
+- An encrypted frame's `length` (ciphertext and tag) MUST be at least
+  `AEAD_TAG_SIZE` and at most `MAX_PAYLOAD`, so it carries at most 65 519 bytes of
+  plaintext.
+- A `HANDSHAKE` frame's `length` MUST be at least 1 and at most `MAX_PAYLOAD`, so a
+  Noise message is at most 65 534 bytes (section 4.2).
 - A receiver MUST NOT allocate memory sized from an unvalidated `length`.
 
-`MAX_PAYLOAD` leaves room for a 256 KiB file chunk plus its metadata and tag.
+`MAX_PAYLOAD` is the Noise limit on any message, handshake or transport. Larger
+application units are split across several frames: a 256 KiB file chunk, the unit
+of hashing and resume, travels as several `CHUNK_DATA` frames (Phase 2 spec).
 
 ### 2.2 Streams
 
@@ -484,7 +489,7 @@ defaults and are finalized in the Phase 2 (transfer) and Phase 7 (messaging) spe
 | Concurrent accepted transfers | 4 | New offer rejected |
 | In-flight chunks per transfer (requested, not yet received) | 8 (2 MiB) | Receiver does not request more |
 | Unrequested `CHUNK_DATA` | 0 | Fatal (`PROTOCOL_ERROR`) |
-| Message size | 64 KiB of text | Fatal (`PROTOCOL_ERROR`) |
+| Message size | 60 KiB (61 440 bytes) of text, so a message fits one frame with room for metadata | Fatal (`PROTOCOL_ERROR`) |
 | Incoming message rate | 50 per second | Back-pressure: the receiver stops reading the socket |
 | Stored offline messages for the peer | 10 000 or 64 MiB | Oldest undelivered kept; sender told to retry (Phase 7) |
 
@@ -563,8 +568,7 @@ mDNS may replace UDP broadcast in a later version.
 |------|-------|
 | Protocol version | `1` |
 | `HEADER_SIZE` | 28 bytes |
-| `MAX_PAYLOAD` | 524 288 bytes |
-| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes |
+| `MAX_PAYLOAD` | 65 535 bytes |
 | `AEAD_TAG_SIZE` | 16 bytes |
 | Noise prologue | `"2LINK/1"` |
 | `REKEY_FRAMES` | 2^24 |
@@ -588,3 +592,8 @@ mDNS may replace UDP broadcast in a later version.
   a 2Link `Rekey()` shim and a 2Link CMake build. It passes every section 4–5
   requirement on Linux (GCC, ASan/UBSan) and Windows/MSVC. Details and evidence:
   `poc/noise-c/RESULTS.md`.
+- **Frame size (v0.1.1, 2026-11-27):** v0.1 allowed encrypted frames of 512 KiB,
+  but the Noise specification limits every message to 65 535 bytes and noise-c
+  enforces it. The PoC did not catch this because its frames were small.
+  `MAX_PAYLOAD` is now 65 535 bytes for every frame type; 256 KiB file chunks span
+  several frames; the message size limit is 60 KiB.

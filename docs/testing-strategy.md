@@ -145,7 +145,7 @@ design review, no automated test).
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
 | Q1 | Peer A exceeds each quota in spec §6.6 while peer B chats and transfers | Integration | A's excess refused or back-pressured as specified; A's memory use stays bounded; B's chat latency and transfer unaffected | 2 | planned |
-| Q1 | Message larger than 64 KiB; 1 000 messages per second | Unit | Oversized message fatal; flood slowed by back-pressure, not buffered | 1 | planned |
+| Q1 | Message larger than 60 KiB; 1 000 messages per second | Unit | Oversized message fatal; flood slowed by back-pressure, not buffered | 1 | planned |
 | Q2 | Fill offline storage for one peer | Unit | Cap enforced per peer; other peers' storage unaffected | 7 | planned |
 
 ### 4.7 Third-party cryptographic code
