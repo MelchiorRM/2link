@@ -67,6 +67,8 @@ with two accommodations: a 25-line `Rekey()` shim, and our own CMake build.**
 
 ## Recommendation
 
+**Accepted on 2026-11-27.** Spec v0.1 is frozen with the §5.1 change below.
+
 Adopt noise-c @ `cfe2541` with the libsodium backend, the rekey shim and our CMake
 build. For Phase 1:
 
