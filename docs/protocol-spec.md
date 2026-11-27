@@ -59,11 +59,14 @@ Every byte on a 2Link TCP connection belongs to a frame. A frame is a fixed
 | `HEADER_SIZE` | 28 bytes |
 | `MAX_PAYLOAD` | 524 288 bytes (512 KiB) |
 | `AEAD_TAG_SIZE` | 16 bytes |
-| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes (Noise message limit) |
+| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes (`kind` byte + Noise message) |
 
 - A receiver MUST validate the full header before reading or allocating for the
   payload. A `length` above the limit for the frame type is fatal.
-- An encrypted frame's `length` MUST be at least `AEAD_TAG_SIZE`.
+- An encrypted frame's `length` MUST be at least `AEAD_TAG_SIZE` and at most
+  `MAX_PAYLOAD`.
+- A `HANDSHAKE` frame's `length` MUST be at least 1 and at most
+  `MAX_HANDSHAKE_PAYLOAD`, so a Noise message is at most 65 534 bytes (section 4.2).
 - A receiver MUST NOT allocate memory sized from an unvalidated `length`.
 
 `MAX_PAYLOAD` leaves room for a 256 KiB file chunk plus its metadata and tag.
