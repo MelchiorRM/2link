@@ -10,6 +10,7 @@ add_executable(twolink_tests
   deps/sodium_test.cpp
   framing/frame_test.cpp
   identity/device_id_test.cpp
+  identity/identity_test.cpp
   identity/keystore_test.cpp
   framing/frame_parser_test.cpp)
 target_link_libraries(twolink_tests PRIVATE

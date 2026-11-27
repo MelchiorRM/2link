@@ -1,5 +1,6 @@
 add_library(twolink_identity
   src/device_id.cpp
+  src/identity.cpp
   src/keystore_common.cpp)
 if(WIN32)
   target_sources(twolink_identity PRIVATE src/keystore_windows.cpp)
