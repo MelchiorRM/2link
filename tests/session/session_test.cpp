@@ -375,7 +375,22 @@ TEST(SessionReplay, ErrorsAreSticky) {
   Bytes wire;
   EXPECT_EQ(p.b.seal(kT0, FrameType::kMsg, kMessagingStream, text("y"), wire),
             ErrorCode::kDecryptFailed);
+  EXPECT_EQ(p.b.send_rekey(kT0, wire), ErrorCode::kDecryptFailed);
   EXPECT_TRUE(wire.empty());
+}
+
+TEST(SessionReplay, CloseCanStillBeSentAfterReceiveError) {  // §7.1
+  Pair p = make_pair();
+  Frame bad = seal_msg(p.a, text("x"));
+  bad.payload.back() ^= 1;
+  ASSERT_EQ(open(p.b, bad), ErrorCode::kDecryptFailed);
+  const Bytes close_payload{0x00, 0x04, 0x00, 0x00};  // DECRYPT_FAILED, no reason
+  Bytes wire;
+  ASSERT_EQ(p.b.seal(kT0, FrameType::kClose, kControlStream, close_payload, wire),
+            ErrorCode::kNoError);
+  Bytes got;
+  ASSERT_EQ(open(p.a, parse(wire).at(0), &got), ErrorCode::kNoError);
+  EXPECT_EQ(got, close_payload);
 }
 
 // --- splicing (S5) ------------------------------------------------------------

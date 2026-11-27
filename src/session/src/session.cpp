@@ -30,9 +30,16 @@ Session::Session(crypto::Handshake::Keys keys, std::uint64_t conn_id, Clock::tim
       send_key_first_seq_(send_.nonce()),
       send_key_since_(now) {}
 
-ErrorCode Session::fail(ErrorCode code) noexcept {
+ErrorCode Session::fail_send(ErrorCode code) noexcept {
+  if (send_error_ == ErrorCode::kNoError) send_error_ = code;
   if (error_ == ErrorCode::kNoError) error_ = code;
-  return error_;
+  return send_error_;
+}
+
+ErrorCode Session::fail_recv(ErrorCode code) noexcept {
+  if (recv_error_ == ErrorCode::kNoError) recv_error_ = code;
+  if (error_ == ErrorCode::kNoError) error_ = code;
+  return recv_error_;
 }
 
 bool Session::rekey_due(Clock::time_point now) const noexcept {
@@ -44,7 +51,8 @@ bool Session::rekey_due(Clock::time_point now) const noexcept {
 
 ErrorCode Session::seal(Clock::time_point now, FrameType type, std::uint32_t stream_id,
                         std::span<const std::uint8_t> plaintext, std::vector<std::uint8_t>& out) {
-  if (failed()) return error_;
+  if (send_error_ != ErrorCode::kNoError) return send_error_;
+  if (recv_error_ != ErrorCode::kNoError && type != FrameType::kClose) return recv_error_;
 
   // Argument checks first, so a rejected call changes nothing.
   if (!framing::is_encrypted(type) || plaintext.size() > kMaxPlaintext) {
@@ -74,7 +82,8 @@ ErrorCode Session::seal(Clock::time_point now, FrameType type, std::uint32_t str
 }
 
 ErrorCode Session::send_rekey(Clock::time_point now, std::vector<std::uint8_t>& out) {
-  if (failed()) return error_;
+  if (send_error_ != ErrorCode::kNoError) return send_error_;
+  if (recv_error_ != ErrorCode::kNoError) return recv_error_;
   return rekey_send(now, out);
 }
 
@@ -87,7 +96,7 @@ ErrorCode Session::rekey_send(Clock::time_point now, std::vector<std::uint8_t>& 
   }
   if (!send_.rekey()) {
     out.resize(start);
-    return fail(ErrorCode::kInternalError);
+    return fail_send(ErrorCode::kInternalError);
   }
   send_key_first_seq_ = send_.nonce();
   send_key_since_ = now;
@@ -98,7 +107,7 @@ ErrorCode Session::seal_one(FrameType type, std::uint32_t stream_id,
                             std::span<const std::uint8_t> plaintext,
                             std::vector<std::uint8_t>& out) {
   const std::uint64_t seq = send_.nonce();
-  if (!seq_allows(seq, type)) return fail(ErrorCode::kInternalError);
+  if (!seq_allows(seq, type)) return fail_send(ErrorCode::kInternalError);
 
   FrameHeader header;
   header.type = type;
@@ -120,7 +129,7 @@ ErrorCode Session::seal_one(FrameType type, std::uint32_t stream_id,
   std::copy(plaintext.begin(), plaintext.end(), body.begin());
   if (!send_.encrypt_in_place(head, body, plaintext.size())) {
     out.resize(start);
-    return fail(ErrorCode::kInternalError);
+    return fail_send(ErrorCode::kInternalError);
   }
   return ErrorCode::kNoError;
 }
@@ -128,31 +137,31 @@ ErrorCode Session::seal_one(FrameType type, std::uint32_t stream_id,
 ErrorCode Session::open(const FrameHeader& header, std::span<const std::uint8_t> payload,
                         std::vector<std::uint8_t>& plaintext) {
   plaintext.clear();
-  if (failed()) return error_;
+  if (recv_error_ != ErrorCode::kNoError) return recv_error_;
 
   if (!framing::is_encrypted(header.type) || header.length != payload.size()) {
-    return fail(ErrorCode::kProtocolError);
+    return fail_recv(ErrorCode::kProtocolError);
   }
   // The parser has validated the header; checking again keeps open() safe on
   // its own and gives the exact bytes that were authenticated.
   std::array<std::uint8_t, kHeaderSize> ad{};
   if (const FrameError e = framing::encode_header(header, ad); e != FrameError::kOk) {
-    return fail(framing::to_error_code(e));
+    return fail_recv(framing::to_error_code(e));
   }
-  if (header.conn_id != conn_id_) return fail(ErrorCode::kProtocolError);  // §2.3, S5
-  if (header.seq != recv_.nonce()) return fail(ErrorCode::kReplayDetected);  // §5.3, S3
+  if (header.conn_id != conn_id_) return fail_recv(ErrorCode::kProtocolError);  // §2.3, S5
+  if (header.seq != recv_.nonce()) return fail_recv(ErrorCode::kReplayDetected);  // §5.3, S3
 
   plaintext.assign(payload.begin(), payload.end());
   if (!recv_.decrypt_in_place(ad, plaintext)) {
     sodium_memzero(plaintext.data(), plaintext.size());
     plaintext.clear();
-    return fail(ErrorCode::kDecryptFailed);
+    return fail_recv(ErrorCode::kDecryptFailed);
   }
   plaintext.resize(plaintext.size() - kAeadTagSize);
 
   if (header.type == FrameType::kRekey) {
-    if (!plaintext.empty()) return fail(ErrorCode::kProtocolError);
-    if (!recv_.rekey()) return fail(ErrorCode::kInternalError);
+    if (!plaintext.empty()) return fail_recv(ErrorCode::kProtocolError);
+    if (!recv_.rekey()) return fail_recv(ErrorCode::kInternalError);
   }
   return ErrorCode::kNoError;
 }

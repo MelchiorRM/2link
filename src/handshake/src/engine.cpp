@@ -166,6 +166,10 @@ ErrorCode HandshakeEngine::on_frame(const FrameHeader& header,
     if (config_.kind == HandshakeKind::kPair && remote.role == ConnectionRole::kBulk) {
       return fail(ErrorCode::kProtocolError);
     }
+    // The initiator decides which connection this is (§6.4); a responder
+    // announces the same ROLE. XX responders answer before learning it, but
+    // PAIR is always primary.
+    if (config_.role == crypto::Role::kResponder) config_.local_payload.role = remote.role;
     remote_payload_ = std::move(remote);
   } else if (!body.empty()) {
     return fail(ErrorCode::kProtocolError);  // XX message 1 carries nothing

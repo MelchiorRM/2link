@@ -1,4 +1,4 @@
-# 2Link Protocol Specification v0.1.2
+# 2Link Protocol Specification v0.1.3
 
 Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
 TCP). The Noise library proof-of-concept confirmed sections 4 and 5
@@ -8,6 +8,8 @@ v0.1.1 (2026-11-27) is an erratum to v0.1: encrypted frames are limited to the N
 message size of 65 535 bytes (section 2.1, section 11). Nothing else changes.
 v0.1.2 (2026-11-27) rewords where the private key is stored (section 4.1); this is
 local storage only, with no change on the wire.
+v0.1.3 (2026-11-27) states two rules the v0.1 text left implicit: the responder's
+`ROLE` (section 6.4) and that `CLOSE` after a receive error is still sent (section 7.1).
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -464,6 +466,9 @@ V1 uses up to two TCP connections per paired peer:
 | Opened | First | Only while a primary connection to the same `device_id` is `ESTABLISHED` |
 
 - Each connection runs its own handshake and has its own keys and `conn_id`.
+- The initiator's `ROLE` decides the connection role. The responder sends the same
+  `ROLE` value back; an initiator that receives a different value MUST close the
+  connection (handshake failure, no frame sent).
 - A bulk connection without an established primary to the same peer is closed.
 - At most one primary and one bulk connection per peer. If both peers dial at once,
   the connection whose initiator has the lexicographically lower `device_id` is
@@ -509,8 +514,9 @@ buffering.
   on the wire; the TCP connection is simply closed. Unauthenticated error frames
   could be forged and would give an attacker an oracle.
 - **With session keys**, the side detecting the error sends an encrypted `CLOSE`
-  with the error code, then closes the TCP connection. The receiver of `CLOSE` does
-  not reply.
+  with the error code, then closes the TCP connection. This includes receive errors
+  such as `DECRYPT_FAILED` or `REPLAY_DETECTED`: the sending direction is still
+  intact. The receiver of `CLOSE` does not reply.
 - Codes marked *local* are only logged or shown to the user, never sent.
 - A received unknown code is treated as `PROTOCOL_ERROR`.
 
@@ -606,3 +612,8 @@ mDNS may replace UDP broadcast in a later version.
   under WSL there is usually no Secret Service, and libsecret brings glib and
   libgcrypt. V1 stores the key in an owner-only file on Linux and keeps DPAPI on
   Windows (section 4.1, threat model L1).
+- **Responder `ROLE` and `CLOSE` after receive errors (v0.1.3, 2026-11-27):** found
+  while building the connection state machine. v0.1 did not say which `ROLE` an IK
+  responder announces before it knows the connection's purpose; it now echoes the
+  initiator's (section 6.4). Section 7.1 now says explicitly that a receive error
+  does not stop the detecting side from sending `CLOSE`. No wire format changes.

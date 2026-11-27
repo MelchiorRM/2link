@@ -4,7 +4,7 @@ Two-PC secure messaging and file-transfer protocol: a custom application protoco
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
 Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
-(crypto, identity and session layers done).
+(crypto, identity, session, handshake and connection layers done).
 
 ## Build
 
@@ -57,6 +57,7 @@ src/crypto/      libsodium + noise-c wrapper (keys, handshakes, CipherState)
 src/identity/    device identity, device_id, keystore
 src/session/     encrypted frames, seq/replay checks, rekeying
 src/handshake/   HANDSHAKE frames, XX/IK driver, TLV payloads, SAS
+src/connection/  connection state machine, pairing window and rate limiter
 third_party/     pinned noise-c build and 2Link's shim
 tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md, testing-strategy.md
