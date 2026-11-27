@@ -1,4 +1,4 @@
-add_library(twolink_discovery src/announcement.cpp src/device_table.cpp)
+add_library(twolink_discovery src/announcement.cpp src/device_table.cpp src/service.cpp)
 add_library(twolink::discovery ALIAS twolink_discovery)
 target_include_directories(twolink_discovery PUBLIC include)
 target_link_libraries(twolink_discovery
