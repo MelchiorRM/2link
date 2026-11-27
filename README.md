@@ -10,8 +10,8 @@ Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messag
 
 Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git,
 and [vcpkg](https://github.com/microsoft/vcpkg). Library dependencies (libsodium,
-GoogleTest) are declared in `vcpkg.json` and installed by vcpkg during the first
-configure; noise-c is fetched at a pinned commit by CMake.
+standalone Asio, GoogleTest) are declared in `vcpkg.json` and installed by vcpkg
+during the first configure; noise-c is fetched at a pinned commit by CMake.
 
 On Debian/Ubuntu, install the system packages listed in
 [`requirements.txt`](requirements.txt):
