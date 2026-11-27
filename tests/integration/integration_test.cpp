@@ -12,6 +12,7 @@
 #include "tcp_proxy.hpp"
 #include "test_node.hpp"
 #include "twolink/framing/frame_parser.hpp"
+#include "twolink/handshake/engine.hpp"
 
 namespace {
 
@@ -210,18 +211,18 @@ TEST_F(Integration, HalfOpenConnectionsAreBoundedAndTimeOut) {  // H9
   a.listen();
   a.node->open_pairing_window();
 
-  // A valid first PAIR message from a real handshake, sent by many sockets
-  // that then go silent, plus sockets that never send anything.
-  TestNode probe(io_, "probe");
-  TcpProxy tap(io_, a.endpoint());
-  probe.node->pair(tap.endpoint());
-  ASSERT_TRUE(run_until([&] { return !frames_of(tap.sent(true, 0)).empty(); }));
-  const Bytes pair_message_1 = frames_of(tap.sent(true, 0)).front();
-  probe.node->stop();
-  tap.stop();
-  settle();
-  a.node->pairing_gate().window().close();
-  a.node->open_pairing_window();
+  // A valid first PAIR message (built locally, no peer behind it), sent by
+  // many sockets that then go silent, plus sockets that never send anything.
+  const StaticKeyPair probe_key = StaticKeyPair::generate();
+  twolink::handshake::EngineConfig ec;
+  ec.kind = twolink::handshake::HandshakeKind::kPair;
+  ec.role = twolink::crypto::Role::kInitiator;
+  ec.conn_id = 42;
+  ec.local_payload = twolink::handshake::HandshakePayload{"probe", ConnectionRole::kPrimary, {}};
+  auto engine = twolink::handshake::HandshakeEngine::create(ec, probe_key);
+  ASSERT_TRUE(engine);
+  Bytes pair_message_1;
+  ASSERT_EQ(engine->start(pair_message_1), ErrorCode::kNoError);
 
   std::vector<std::unique_ptr<asio::ip::tcp::socket>> sockets;
   for (int i = 0; i < 20; ++i) {
