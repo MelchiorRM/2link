@@ -2,7 +2,9 @@ add_library(twolink_options INTERFACE)
 add_library(twolink::options ALIAS twolink_options)
 
 if(MSVC)
-  target_compile_options(twolink_options INTERFACE /W4 /permissive-)
+  # Third-party headers (#include <...>, e.g. Asio) are not held to our warning level.
+  target_compile_options(twolink_options INTERFACE /W4 /permissive- /external:anglebrackets
+                                                   /external:W0)
   if(TWOLINK_WARNINGS_AS_ERRORS)
     target_compile_options(twolink_options INTERFACE /WX)
   endif()

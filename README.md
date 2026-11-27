@@ -4,14 +4,14 @@ Two-PC secure messaging and file-transfer protocol: a custom application protoco
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
 Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
-(crypto, identity, session, handshake and connection layers done).
+(crypto, identity, session, handshake, connection and TCP transport layers done).
 
 ## Build
 
 Requirements: CMake ≥ 3.25, a C++20 compiler (GCC 13+, Clang 16+, MSVC 19.36+), Git,
 and [vcpkg](https://github.com/microsoft/vcpkg). Library dependencies (libsodium,
-GoogleTest) are declared in `vcpkg.json` and installed by vcpkg during the first
-configure; noise-c is fetched at a pinned commit by CMake.
+standalone Asio, GoogleTest) are declared in `vcpkg.json` and installed by vcpkg
+during the first configure; noise-c is fetched at a pinned commit by CMake.
 
 On Debian/Ubuntu, install the system packages listed in
 [`requirements.txt`](requirements.txt):
@@ -58,10 +58,11 @@ src/identity/    device identity, device_id, keystore, trust store
 src/session/     encrypted frames, seq/replay checks, rekeying
 src/handshake/   HANDSHAKE frames, XX/IK driver, TLV payloads, SAS
 src/connection/  connection state machine, pairing window and rate limiter
+src/transport/   TCP on standalone Asio: links, node, primary/bulk rules
 third_party/     pinned noise-c build and 2Link's shim
 tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md, testing-strategy.md
 ```
 
-Planned modules, added in their phase: `src/transport` (TCP, later UDP), `src/discovery`,
+Planned modules, added in their phase: `src/discovery`,
 `src/transfer`, `src/storage` (SQLite), `apps/desktop` (Qt 6).
