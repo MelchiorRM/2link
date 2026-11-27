@@ -1,10 +1,12 @@
 // Keystore parts shared by every platform.
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 
 #include <sodium.h>
 
+#include "private_file.hpp"
 #include "twolink/identity/keystore.hpp"
 
 namespace twolink::identity {
@@ -50,6 +52,18 @@ std::string_view to_string(KeystoreStatus status) noexcept {
     case KeystoreStatus::kIoError: return "I/O error";
   }
   return "unknown";
+}
+
+std::string detail::random_suffix() {
+  std::array<std::uint8_t, 8> r{};
+  randombytes_buf(r.data(), r.size());
+  static constexpr char kHex[] = "0123456789abcdef";
+  std::string s;
+  for (const std::uint8_t b : r) {
+    s += kHex[b >> 4];
+    s += kHex[b & 0x0F];
+  }
+  return s;
 }
 
 bool is_valid_secret_name(std::string_view name) noexcept {

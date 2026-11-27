@@ -54,7 +54,7 @@ apps/cli/        command-line front end (first implementation target)
 src/core/        shared types, version, utilities
 src/framing/     frame format, serialization, bounds-checked parser
 src/crypto/      libsodium + noise-c wrapper (keys, handshakes, CipherState)
-src/identity/    device identity, device_id, keystore
+src/identity/    device identity, device_id, keystore, trust store
 src/session/     encrypted frames, seq/replay checks, rekeying
 src/handshake/   HANDSHAKE frames, XX/IK driver, TLV payloads, SAS
 src/connection/  connection state machine, pairing window and rate limiter

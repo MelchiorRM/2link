@@ -131,7 +131,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | ID | Threat | Actor | Mitigation | Verified by |
 |----|--------|-------|------------|-------------|
 | L1 | Private key theft from disk | T7 | Windows: encrypted with DPAPI for the current user. Linux (V1): owner-only file (`0600` in a `0700` directory); loading refuses a file that is a symlink, not a regular file, not owned by the user, or accessible to group or others, and storing refuses a directory others can write to. Secrets are never overwritten. | Unit tests (permissions, symlink, corruption, no overwrite), code review |
-| L2 | Trust store tampering (pinning an attacker key) | T7 | File permissions `0600` / user-only ACL; the trust store is integrity-checked with a key from the keystore | Unit test |
+| L2 | Trust store tampering (pinning an attacker key) | T7 | Owner-only file (`0600` in a `0700` directory on Linux, `%LOCALAPPDATA%` on Windows), loaded with the same checks as the keystore; authenticated with keyed BLAKE2b-256 under the keystore secret `trust-store`, verified before parsing; strict parser (each `device_id` must be derived from its key, no duplicates); a file whose key is missing is refused, never re-keyed; writes replace the file atomically | Unit tests (every bit flip, wrong key, forged records, permissions, symlink) |
 | L3 | Message log tampering | T7 | Hash-chained records give tamper evidence only (Phase 7) | Unit test |
 | L4 | Keys left in memory or swap | T7 | `sodium_memzero` on session teardown; `sodium_mlock` for long-term keys where supported | Code review |
 | L5 | Secrets in logs | Implementation bug | Never log keys, plaintext, or SAS values; log device IDs in display form only | Code review, log-grep test |
@@ -176,6 +176,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
 | Device names leak on the LAN (D5) | Presence and naming visible | Users choose neutral names |
 | Private key readable by the user's own processes on Linux (L1) | Malware running as the user can copy the identity key and impersonate the device | Same exposure as an SSH key; an unlocked Secret Service keyring is readable by those processes too. Out of scope like other endpoint compromise; a libsecret backend may follow |
+| Trust store rollback (L2) | Someone who can write the user's files can put back an older, validly authenticated trust store, restoring a peer the user removed | The MAC proves the file came from this device, not that it is the latest version. Such an attacker already runs as the user (see L1). A version counter kept in the keystore would close this; revisit with libsecret |
 | Unmaintained Noise library (X1) | Upstream security fixes will not arrive | Pinned and reviewed in-house; conformance tests in CI; revisit if a maintained, MSVC-capable library appears |
 
 ## 9. Maintenance

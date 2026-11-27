@@ -25,6 +25,7 @@
 #include <sodium.h>
 
 #include "keystore_file_format.hpp"
+#include "private_file.hpp"
 #include "twolink/identity/keystore.hpp"
 
 namespace twolink::identity {
@@ -47,18 +48,6 @@ struct BlobGuard {
     }
   }
 };
-
-std::string random_suffix() {
-  std::array<std::uint8_t, 8> r{};
-  randombytes_buf(r.data(), r.size());
-  static constexpr char kHex[] = "0123456789abcdef";
-  std::string s;
-  for (const std::uint8_t b : r) {
-    s += kHex[b >> 4];
-    s += kHex[b & 0x0F];
-  }
-  return s;
-}
 
 }  // namespace
 
@@ -122,7 +111,7 @@ KeystoreStatus FileKeystore::store(std::string_view name, const SecretKey& secre
 
   // Write a temporary file, then move it into place without replacing: a
   // concurrent store cannot be overwritten.
-  const std::filesystem::path tmp = dir_ / ("." + std::string(name) + ".tmp-" + random_suffix());
+  const std::filesystem::path tmp = dir_ / ("." + std::string(name) + ".tmp-" + detail::random_suffix());
   {
     std::ofstream f(tmp, std::ios::binary | std::ios::trunc);
     f.write(reinterpret_cast<const char*>(kDpapiMagic.data()),
