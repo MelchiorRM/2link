@@ -12,6 +12,7 @@ add_executable(twolink_tests
   identity/device_id_test.cpp
   identity/identity_test.cpp
   identity/keystore_test.cpp
+  identity/trust_store_test.cpp
   session/session_test.cpp
   handshake/payload_test.cpp
   handshake/engine_test.cpp
