@@ -104,11 +104,11 @@ design review, no automated test).
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
 | S1 | Capture a session with `tcpdump`; search for known plaintext | System | Plaintext absent | 1 | planned |
-| S2 | Flip each bit of header and payload of an encrypted frame | Unit | Every flip → `DECRYPT_FAILED`, plaintext never returned | 1 | planned |
-| S3 | Duplicate, skipped and swapped `seq` | Unit | Fatal `REPLAY_DETECTED` | 1 | planned |
-| S4 | Encrypt N frames with a rekey in the middle; compare `seq` with both CipherState counters | Unit | `seq` == sender counter == receiver counter for every frame; counter not reset by rekey; no (key, nonce) pair repeats; connection closes before counter `2^64-1` | 1 | planned |
+| S2 | Flip each bit of header and payload of an encrypted frame | Unit | Every flip is fatal and no plaintext is returned; flips that leave `conn_id`, `seq` and `length` intact (payload, type/stream variants) → `DECRYPT_FAILED`, the rest are caught earlier by the parser or the `conn_id`/`seq` checks | 1 | done |
+| S3 | Duplicate, skipped and swapped `seq` | Unit | Fatal `REPLAY_DETECTED` | 1 | done |
+| S4 | Encrypt N frames with a rekey in the middle; compare `seq` with both CipherState counters | Unit | `seq` == sender counter == receiver counter for every frame; counter not reset by rekey; no (key, nonce) pair repeats; connection closes before counter `2^64-1` | 1 | done |
 | S4 | — | Review | No code sets a nonce manually; only the CipherState chooses nonces | 1 | review |
-| S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | planned |
+| S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | unit done; integration in 1.10 |
 | S6 | Header with `length` above limits, split and unsplit | Unit | Rejected after the header; buffer never exceeds `kMaxFrameSize` | 0 | done |
 | S7 | Fuzz the frame parser; random garbage under ASan/UBSan | Fuzz, unit | No crash or sanitizer report; chunking-invariant results | 0 | done |
 | S8 | Every (state, frame type) and (stream, frame type) pair from spec §2.2 and §6.3 | Unit | Allowed pairs accepted; all others fatal | 0 / 1 | partial (stream rules done) |

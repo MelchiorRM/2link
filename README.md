@@ -45,10 +45,13 @@ With GCC, the same binary replays input files: `fuzz_frame_parser <files...>`.
 apps/cli/        command-line front end (first implementation target)
 src/core/        shared types, version, utilities
 src/framing/     frame format, serialization, bounds-checked parser
+src/crypto/      libsodium + noise-c wrapper (keys, handshakes, CipherState)
+src/identity/    device identity, device_id, keystore
+src/session/     encrypted frames, seq/replay checks, rekeying
+third_party/     pinned noise-c build and 2Link's shim
 tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md, testing-strategy.md
 ```
 
-Planned modules, added in their phase: `src/crypto` (libsodium + Noise),
-`src/session`, `src/transport` (TCP, later UDP), `src/discovery`,
+Planned modules, added in their phase: `src/transport` (TCP, later UDP), `src/discovery`,
 `src/transfer`, `src/storage` (SQLite), `apps/desktop` (Qt 6).
