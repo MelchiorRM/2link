@@ -1,11 +1,11 @@
-// Generated from noise-c tests/vector/cacophony.txt (commit cfe2541),
-// test vectors produced by the Cacophony reference implementation.
+// From noise-c tests/vector/cacophony.txt (commit cfe2541): test vectors
+// produced by the Cacophony reference implementation (threat model X1).
 #pragma once
 
 #include <string_view>
 #include <vector>
 
-namespace poc {
+namespace twolink::test {
 
 struct VectorMessage { std::string_view payload, ciphertext; };
 struct Vector {
@@ -54,4 +54,4 @@ inline const Vector kIK{
          "8b9709d23b47e4639df7678d7a21741eba4ef1e9c60383001c7435549c20f9d56f30e935d3"},
     }};
 
-}  // namespace poc
+}  // namespace twolink::test

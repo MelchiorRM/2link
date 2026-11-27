@@ -1,10 +1,10 @@
-#include "noise_rekey.h"
+#include "twolink/noise_ext.h"
 
 #include <sodium.h>
 
 #include "protocol/internal.h"
 
-int poc_noise_cipherstate_rekey(NoiseCipherState *state)
+int twolink_noise_cipherstate_rekey(NoiseCipherState *state)
 {
     uint8_t block[32 + 16];
     uint64_t saved_n;
@@ -28,7 +28,7 @@ int poc_noise_cipherstate_rekey(NoiseCipherState *state)
     return err;
 }
 
-uint64_t poc_noise_cipherstate_nonce(const NoiseCipherState *state)
+uint64_t twolink_noise_cipherstate_nonce(const NoiseCipherState *state)
 {
     return state ? state->n : 0;
 }

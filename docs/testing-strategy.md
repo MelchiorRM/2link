@@ -152,10 +152,10 @@ design review, no automated test).
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
-| X1 | Cacophony vectors for `Noise_XX` and `Noise_IK` `25519_ChaChaPoly_BLAKE2b` | Unit | Every handshake and transport ciphertext matches byte for byte, on Linux and MSVC | 0 / 1 | partial (PoC; move into the main suite in Phase 1) |
+| X1 | Cacophony vectors for `Noise_XX` and `Noise_IK` `25519_ChaChaPoly_BLAKE2b` | Unit | Every handshake and transport ciphertext matches byte for byte, on Linux and MSVC | 1 | done |
 | X1 | — | Review | Any change of the pinned noise-c commit is reviewed and reruns the conformance tests | 1 | review |
-| X2 | Shim `Rekey()` versus libsodium `REKEY(k)`; counter after rekey; one-sided rekey; old key after rekey | Unit | Keys equal; counter unchanged; one-sided rekey fails decryption; old key fails | 0 / 1 | partial (PoC; move into the main suite in Phase 1) |
-| X3 | Force every noise-c constructor and handshake call to fail through the wrapper | Unit (ASan) | No use-after-free; wrapper holds no pointer after an error | 1 | planned |
+| X2 | Shim `Rekey()` versus libsodium `REKEY(k)`; counter after rekey; one-sided rekey; old key after rekey | Unit | Keys equal; counter unchanged; one-sided rekey fails decryption; old key fails | 1 | done |
+| X3 | Force every noise-c constructor and handshake call to fail through the wrapper | Unit (ASan) | No use-after-free; wrapper holds no pointer after an error | 1 | done |
 
 ## 5. Reliability tests
 
