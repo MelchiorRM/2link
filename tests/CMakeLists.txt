@@ -26,6 +26,7 @@ add_executable(twolink_tests
   discovery/device_table_test.cpp
   discovery/service_test.cpp
   cli/cli_test.cpp
+  integration/integration_test.cpp
   framing/frame_parser_test.cpp)
 target_include_directories(twolink_tests PRIVATE support integration)
 target_link_libraries(twolink_tests PRIVATE
