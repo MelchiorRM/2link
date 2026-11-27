@@ -39,7 +39,7 @@ jobs:
       - name: Configure
         run: cmake --preset fuzz
       - name: Build
-        run: cmake --build --preset fuzz -j --target fuzz_frame_parser fuzz_handshake_payload
+        run: cmake --build --preset fuzz -j --target fuzz_frame_parser fuzz_handshake_payload fuzz_announcement
       - name: Fuzz frame parser (60 s)
         run: |
           mkdir -p corpus-work
@@ -50,6 +50,11 @@ jobs:
           mkdir -p corpus-payload-work
           ./build/fuzz/tests/fuzz/fuzz_handshake_payload -max_total_time=30 -max_len=1024 \
             corpus-payload-work tests/fuzz/corpus_payload
+      - name: Fuzz discovery announcement decoder (30 s)
+        run: |
+          mkdir -p corpus-announce-work
+          ./build/fuzz/tests/fuzz/fuzz_announcement -max_total_time=30 -max_len=1024 \
+            corpus-announce-work tests/fuzz/corpus_announce
       - name: Upload crash artifacts
         if: failure()
         uses: actions/upload-artifact@v4

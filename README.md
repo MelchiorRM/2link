@@ -4,7 +4,7 @@ Two-PC secure messaging and file-transfer protocol: a custom application protoco
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
 Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
-(crypto, identity, session, handshake, connection and TCP transport layers done).
+(protocol core, TCP transport and discovery done; CLI next).
 
 ## Build
 
@@ -59,10 +59,11 @@ src/session/     encrypted frames, seq/replay checks, rekeying
 src/handshake/   HANDSHAKE frames, XX/IK driver, TLV payloads, SAS
 src/connection/  connection state machine, pairing window and rate limiter
 src/transport/   TCP on standalone Asio: links, node, primary/bulk rules
+src/discovery/   UDP announcements, bounded device table
 third_party/     pinned noise-c build and 2Link's shim
 tests/           GoogleTest unit tests (CTest), tests/fuzz fuzz targets
 docs/            protocol-spec.md, threat-model.md, testing-strategy.md
 ```
 
-Planned modules, added in their phase: `src/discovery`,
-`src/transfer`, `src/storage` (SQLite), `apps/desktop` (Qt 6).
+Planned modules, added in their phase: `src/transfer`, `src/storage` (SQLite),
+`apps/desktop` (Qt 6).

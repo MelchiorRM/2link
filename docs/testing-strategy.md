@@ -74,10 +74,10 @@ design review, no automated test).
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
-| D1 | Forged announcement reuses a trusted peer's name with a foreign key | Integration | Shown as unverified; IK to it fails; trust store unchanged | 1 | planned |
-| D2 | Announcement with `DEVICE_ID != BLAKE2b-256(key)` | Unit | Dropped | 1 | planned |
-| D3 | Fuzz the announcement parser; malformed TLV corpus; datagram > 512 bytes | Fuzz, unit | No crash; every malformed input dropped | 1 | planned |
-| D4 | 10 000 announcements from distinct IDs and sources | Unit | Device table stays at its cap; memory bounded; old entries expire | 1 | planned |
+| D1 | Forged announcement reuses a trusted peer's name with a foreign key | Integration | Shown as unverified; IK to it fails; trust store unchanged | 1 | done (loopback UDP + TCP) |
+| D2 | Announcement with `DEVICE_ID != BLAKE2b-256(key)` | Unit | Dropped | 1 | done |
+| D3 | Fuzz the announcement parser; malformed TLV corpus; datagram > 512 bytes | Fuzz, unit | No crash; every malformed input dropped | 1 | done (`fuzz_announcement`) |
+| D4 | 10 000 announcements from distinct IDs and sources | Unit | Device table stays at its cap; memory bounded; old entries expire | 1 | done |
 | D5 | — | — | Accepted risk | — | n/a |
 
 ### 4.2 Handshake and pairing

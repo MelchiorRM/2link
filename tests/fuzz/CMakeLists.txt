@@ -18,3 +18,5 @@ twolink_fuzz_target(fuzz_frame_parser frame_parser_fuzz.cpp corpus
   FuzzCorpus.FrameParser twolink::framing)
 twolink_fuzz_target(fuzz_handshake_payload handshake_payload_fuzz.cpp corpus_payload
   FuzzCorpus.HandshakePayload twolink::handshake)
+twolink_fuzz_target(fuzz_announcement announcement_fuzz.cpp corpus_announce
+  FuzzCorpus.Announcement twolink::discovery twolink::crypto)
