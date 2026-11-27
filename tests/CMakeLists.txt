@@ -22,8 +22,11 @@ add_executable(twolink_tests
   connection/payloads_test.cpp
   connection/connection_test.cpp
   transport/node_test.cpp
+  discovery/announcement_test.cpp
+  discovery/device_table_test.cpp
+  discovery/service_test.cpp
   framing/frame_parser_test.cpp)
 target_link_libraries(twolink_tests PRIVATE
-  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::noisec twolink::options
+  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::discovery twolink::noisec twolink::options
   unofficial-sodium::sodium GTest::gtest_main)
 gtest_discover_tests(twolink_tests)
