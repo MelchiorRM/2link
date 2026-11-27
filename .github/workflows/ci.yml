@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, 'poc/**']
   pull_request:
 
 jobs:
@@ -48,3 +48,22 @@ jobs:
         with:
           name: fuzz-crashes
           path: crash-*
+
+  noise-poc:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            config: -DPOC_SANITIZE=ON
+          - os: windows-2022
+            config: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Configure
+        run: cmake -S poc/noise-c -B build/poc-noise ${{ matrix.config }}
+      - name: Build
+        run: cmake --build build/poc-noise --config Debug --parallel
+      - name: Test
+        run: ctest --test-dir build/poc-noise -C Debug --output-on-failure

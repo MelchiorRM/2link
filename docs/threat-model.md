@@ -59,7 +59,9 @@ there.
 
 - The operating system, the keystore (libsecret, DPAPI) and the user account
   running 2Link are not compromised.
-- libsodium, the Noise library and BLAKE3 are correctly implemented.
+- libsodium, noise-c (pinned at `cfe2541`) and BLAKE3 are correctly implemented.
+  2Link's own `Rekey()` shim is not covered by this assumption; it is our code and
+  is verified by X2.
 - Users actually compare the SAS on both screens before confirming.
 - The CSPRNG (libsodium `randombytes`) is sound.
 - First pairing happens with both users physically able to see both screens, or
@@ -141,6 +143,14 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | Q1 | A paired peer floods offers, transfers, chunks or messages, starving the host or other peers | T5, T6 | Per-peer quotas on top of global limits; excess refused or slowed by back-pressure, never buffered without bound (spec §6.6) | Unit, integration tests |
 | Q2 | A peer fills offline message storage | T5, T6 | Per-peer cap on stored offline messages (spec §6.6, Phase 7) | Unit test |
 
+### 6.7 Third-party cryptographic code
+
+| ID | Threat | Actor | Mitigation | Verified by |
+|----|--------|-------|------------|-------------|
+| X1 | Bug or unsafe change in the Noise library; upstream is unmaintained (last commit December 2023) | Implementation bug, supply chain | Pin noise-c at a reviewed commit; build only the parts 2Link uses, with its libsodium backend; no unpinned updates; Cacophony reference vectors and the PoC conformance tests run in CI on Linux (ASan/UBSan) and MSVC | Conformance tests in CI, code review of any pin change |
+| X2 | `Rekey()` shim drifts from the Noise definition or desynchronises the counter, e.g. after a noise-c layout change | Implementation bug | Shim result checked against an independent libsodium computation of `REKEY(k)`; counter checked unchanged after rekey; both sides checked to stay in sync | Unit tests (`Rekey.*`) |
+| X3 | Use of a freed noise-c object after an error (noise-c frees it but leaves the caller's pointer set) | Implementation bug | C++ RAII wrapper discards the raw pointer on every error return and never exposes it | Unit test of each error path under ASan, code review |
+
 ## 7. Out of scope for V1
 
 | Item | Reason |
@@ -165,6 +175,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | Injected TCP resets (S10) | Sessions drop | Fast IK reconnect and transfer resume |
 | Hash chain only gives tamper evidence (L3) | A compromised endpoint can delete messages | Documented limitation |
 | Device names leak on the LAN (D5) | Presence and naming visible | Users choose neutral names |
+| Unmaintained Noise library (X1) | Upstream security fixes will not arrive | Pinned and reviewed in-house; conformance tests in CI; revisit if a maintained, MSVC-capable library appears |
 
 ## 9. Maintenance
 

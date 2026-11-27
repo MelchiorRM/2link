@@ -1,8 +1,8 @@
 # 2Link Protocol Specification v0.1
 
-Status: draft. Applies to protocol version `1` (V1: LAN, direct TCP).
-v0.1 is frozen once the Noise library proof-of-concept confirms sections 4 and 5
-(see section 10).
+Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
+TCP). The Noise library proof-of-concept confirmed sections 4 and 5
+(`poc/noise-c/RESULTS.md`). Changes from here on go into v0.2.
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -59,11 +59,14 @@ Every byte on a 2Link TCP connection belongs to a frame. A frame is a fixed
 | `HEADER_SIZE` | 28 bytes |
 | `MAX_PAYLOAD` | 524 288 bytes (512 KiB) |
 | `AEAD_TAG_SIZE` | 16 bytes |
-| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes (Noise message limit) |
+| `MAX_HANDSHAKE_PAYLOAD` | 65 535 bytes (`kind` byte + Noise message) |
 
 - A receiver MUST validate the full header before reading or allocating for the
   payload. A `length` above the limit for the frame type is fatal.
-- An encrypted frame's `length` MUST be at least `AEAD_TAG_SIZE`.
+- An encrypted frame's `length` MUST be at least `AEAD_TAG_SIZE` and at most
+  `MAX_PAYLOAD`.
+- A `HANDSHAKE` frame's `length` MUST be at least 1 and at most
+  `MAX_HANDSHAKE_PAYLOAD`, so a Noise message is at most 65 534 bytes (section 4.2).
 - A receiver MUST NOT allocate memory sized from an unvalidated `length`.
 
 `MAX_PAYLOAD` leaves room for a 256 KiB file chunk plus its metadata and tag.
@@ -187,9 +190,9 @@ kind: u8 | noise_message: [length - 1] u8
 
 Every `HANDSHAKE` frame in a connection MUST carry the same `kind`.
 
-The cipher suite (Curve25519, ChaCha20-Poly1305, BLAKE2b) is **provisional** until
-the Noise library proof-of-concept confirms it builds and interoperates on Linux and
-Windows/MSVC (section 10).
+The cipher suite (Curve25519, ChaCha20-Poly1305, BLAKE2b) is fixed for protocol
+version `1`. The proof-of-concept matched it byte for byte against the Cacophony
+reference vectors for both patterns.
 
 **Prologue.** Both patterns use the prologue `"2LINK/1"` (7 ASCII bytes). A peer
 using a different prologue fails the handshake.
@@ -342,9 +345,14 @@ When the handshake completes, Noise `Split()` gives two CipherStates:
 Each side encrypts with its sending CipherState and decrypts with its receiving one.
 Keys are never reused across directions or connections.
 
-The Noise library MUST provide the standard CipherState operations
-(`EncryptWithAd`, `DecryptWithAd`, `Rekey`) and expose the remote static key and the
-handshake hash. Explicit nonce control (`SetNonce`) is **not** required.
+The Noise implementation (the Noise library plus 2Link's own shim) MUST provide
+the standard CipherState operations `EncryptWithAd`, `DecryptWithAd` and `Rekey`,
+and expose the remote static key and the handshake hash. Explicit nonce control
+(`SetNonce`) is **not** required.
+
+`Rekey` MUST follow the Noise definition exactly:
+`REKEY(k) = first 32 bytes of ENCRYPT(k, 2^64-1, "", zeros[32])`, leaving the
+counter `n` unchanged (section 5.4).
 
 ### 5.2 Frame encryption
 
@@ -572,8 +580,11 @@ mDNS may replace UDP broadcast in a later version.
 - Flow control and priority between transfer streams on the bulk connection (Phase 4).
 - Replay window, explicit per-frame nonces and connection migration for the UDP
   transport (V2).
-- **Noise library proof-of-concept (blocks freezing v0.1):** on Linux and
-  Windows/MSVC, verify XX, IK, Curve25519 + ChaCha20-Poly1305 + BLAKE2b, access to
-  the handshake hash and remote static key, CipherState encrypt/decrypt, and
-  `Rekey()`. Sections 4 and 5 change if it fails.
 - Longer verification codes or QR fingerprints instead of the 6-digit SAS.
+
+## 11. Resolved for v0.1
+
+- **Noise library (2026-11-27):** noise-c @ `cfe2541` with the libsodium backend,
+  a 2Link `Rekey()` shim and a 2Link CMake build. It passes every section 4–5
+  requirement on Linux (GCC, ASan/UBSan) and Windows/MSVC. Details and evidence:
+  `poc/noise-c/RESULTS.md`.
