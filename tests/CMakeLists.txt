@@ -20,8 +20,9 @@ add_executable(twolink_tests
   connection/pairing_gate_test.cpp
   connection/payloads_test.cpp
   connection/connection_test.cpp
+  transport/node_test.cpp
   framing/frame_parser_test.cpp)
 target_link_libraries(twolink_tests PRIVATE
-  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::noisec twolink::options
+  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::noisec twolink::options
   unofficial-sodium::sodium GTest::gtest_main)
 gtest_discover_tests(twolink_tests)
