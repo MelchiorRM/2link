@@ -240,12 +240,17 @@ TEST_F(NodeTest, BulkNeedsAnEstablishedPrimary) {  // §6.4
   ASSERT_TRUE(run_until([&] { return !a.node->connected(b.id()); }));
   settle();
 
-  const std::size_t closed_before = b.closed.size();
+  const std::size_t a_before = a.closed_with(ErrorCode::kProtocolError);
+  const std::size_t b_before = b.closed_with(ErrorCode::kProtocolError);
   ASSERT_TRUE(b.node->reconnect(a.id(), a.endpoint(), ConnectionRole::kBulk));
-  ASSERT_TRUE(run_until([&] { return b.closed.size() > closed_before; }));
-  EXPECT_EQ(b.closed.back().code, ErrorCode::kProtocolError);
-  EXPECT_TRUE(b.closed.back().by_peer);
+  // Both sides apply the rule; whichever acts first sends CLOSE, so each end
+  // reports PROTOCOL_ERROR, locally or from the peer depending on timing.
+  ASSERT_TRUE(run_until([&] {
+    return a.closed_with(ErrorCode::kProtocolError) > a_before &&
+           b.closed_with(ErrorCode::kProtocolError) > b_before;
+  }));
   EXPECT_FALSE(a.node->bulk_link(b.id()));
+  EXPECT_FALSE(b.node->bulk_link(a.id()));
 }
 
 TEST_F(NodeTest, BulkFollowsItsPrimary) {  // §6.4
