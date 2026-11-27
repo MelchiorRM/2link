@@ -4,7 +4,7 @@ Two-PC secure messaging and file-transfer protocol: a custom application protoco
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
 Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
-(protocol core, TCP transport and discovery done; CLI next).
+(protocol core, TCP transport, discovery and CLI done; integration tests next).
 
 ## Build
 
@@ -46,6 +46,32 @@ cmake --preset fuzz && cmake --build --preset fuzz --target fuzz_frame_parser
 ```
 
 With GCC, the same binary replays input files: `fuzz_frame_parser <files...>`.
+
+## Using the CLI
+
+On each PC, once:
+
+```bash
+2link id                      # creates this device's key; prints its device ID
+```
+
+Pair two PCs (both users must compare the 6-digit code and type `y`):
+
+```bash
+2link pair --listen           # PC A: opens a 5-minute pairing window
+2link pair 192.168.1.20       # PC B: A's address
+```
+
+Then chat. Each side finds the other on the LAN, or use `--host`:
+
+```bash
+2link chat <name-or-id>       # on both PCs; /quit to leave
+2link chat laptop --host 192.168.1.20
+2link peers [--scan]          # paired devices; --scan lists devices on the LAN
+```
+
+TCP port 47821 and UDP port 47820 must be reachable on the LAN. To try it on
+one machine, give each instance its own `--data-dir` and `--port`.
 
 ## Layout
 
