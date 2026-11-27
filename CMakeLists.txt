@@ -30,6 +30,7 @@ add_subdirectory(third_party/noise-c)
 
 add_subdirectory(src/core)
 add_subdirectory(src/framing)
+add_subdirectory(src/crypto)
 add_subdirectory(apps/cli)
 
 if(TWOLINK_BUILD_TESTS)
