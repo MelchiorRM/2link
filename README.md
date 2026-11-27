@@ -3,8 +3,8 @@
 Two-PC secure messaging and file-transfer protocol: a custom application protocol,
 a reusable C++20 networking core, and (later) a Qt 6 desktop app.
 
-Status: **Phase 1 — discovery, TCP, Noise handshake, pairing, encrypted messaging**
-(protocol core, TCP transport, discovery and CLI done; integration tests next).
+Status: **Phase 1 complete** — discovery, TCP, Noise handshake, pairing and encrypted
+chat between two PCs (spec v0.1.4). Next: Phase 2, file transfer.
 
 ## Build
 
