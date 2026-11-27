@@ -80,7 +80,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 | D1 | Forged announcement impersonates a known peer | T2, T4 | Discovery never grants trust (spec §8). A paired device is trusted only after IK against the pinned key succeeds. | Integration test: forged announcement with a trusted name and a foreign key is shown as unverified; IK against it fails |
 | D2 | Announcement with mismatched `DEVICE_ID` and key | T2 | Receiver drops it unless `DEVICE_ID == BLAKE2b-256(key)` | Unit test |
 | D3 | Malformed or oversized datagram crashes the parser | T2 | 512-byte limit; strict TLV parsing; fuzzing | Fuzz target, unit tests |
-| D4 | Announcement flood exhausts memory or the device list | T6 | Bounded device table with expiry; per-source rate limit | Unit test with a flood |
+| D4 | Announcement flood exhausts memory or the device list | T6 | Device table capped at 128 entries, each expiring 15 s after its last announcement; when full, the oldest unpaired entry is evicted, so forged devices cannot push paired peers out; at most 8 announcements per source address per 5 s, with the source table capped at 256 (LRU). UDP sources can be spoofed, so a determined flood can still hide unpaired devices for a while | Unit tests with floods from many sources and from one |
 | D5 | Passive attacker learns device names and presence | T1 | Accepted: announcements are public by design | — |
 
 ### 6.2 Handshake and pairing
