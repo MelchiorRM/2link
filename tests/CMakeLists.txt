@@ -25,8 +25,19 @@ add_executable(twolink_tests
   discovery/announcement_test.cpp
   discovery/device_table_test.cpp
   discovery/service_test.cpp
+  cli/cli_test.cpp
   framing/frame_parser_test.cpp)
 target_link_libraries(twolink_tests PRIVATE
-  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::discovery twolink::noisec twolink::options
+  twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::discovery twolink::cli_lib twolink::noisec twolink::options
   unofficial-sodium::sodium GTest::gtest_main)
 gtest_discover_tests(twolink_tests)
+
+# The 2link binary itself: exit codes and output of non-interactive commands.
+add_test(NAME Cli.Version COMMAND twolink_cli version)
+set_tests_properties(Cli.Version PROPERTIES PASS_REGULAR_EXPRESSION "protocol v1")
+add_test(NAME Cli.IdCreatesIdentity
+  COMMAND twolink_cli id --name ctest --data-dir ${CMAKE_CURRENT_BINARY_DIR}/cli-data)
+set_tests_properties(Cli.IdCreatesIdentity PROPERTIES
+  PASS_REGULAR_EXPRESSION "Device ID:   [0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]-[0-9a-f][0-9a-f][0-9a-f][0-9a-f]")  # CMake regex: no {n}
+add_test(NAME Cli.UnknownCommandFails COMMAND twolink_cli bogus)
+set_tests_properties(Cli.UnknownCommandFails PROPERTIES WILL_FAIL TRUE)
