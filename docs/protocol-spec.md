@@ -1,4 +1,4 @@
-# 2Link Protocol Specification v0.1.3
+# 2Link Protocol Specification v0.1.4
 
 Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
 TCP). The Noise library proof-of-concept confirmed sections 4 and 5
@@ -10,6 +10,8 @@ v0.1.2 (2026-11-27) rewords where the private key is stored (section 4.1); this 
 local storage only, with no change on the wire.
 v0.1.3 (2026-11-27) states two rules the v0.1 text left implicit: the responder's
 `ROLE` (section 6.4) and that `CLOSE` after a receive error is still sent (section 7.1).
+v0.1.4 (2026-11-28) adds key confirmation to IK reconnection (section 4.8): a replayed
+IK message 1 could otherwise make the responder treat an attacker as a connected peer.
 
 Key words MUST, MUST NOT, SHOULD and MAY are used as in RFC 2119.
 
@@ -341,6 +343,17 @@ After successful pairing each side stores, per peer:
 - If the responder's key changed, IK fails cryptographically on the responder, which
   closes the TCP connection. The initiator reports a handshake failure.
 - There is no automatic fallback from IK to XX.
+- **Key confirmation.** IK message 1 can be replayed: the responder accepts it and
+  completes the handshake, although the replayer cannot derive the session keys.
+  Therefore:
+  - the initiator, as soon as it has processed message 2, enters `ESTABLISHED` and
+    sends `PING` (encrypted, `seq` 0);
+  - the responder, after sending message 2, stays in `HANDSHAKING`. It enters
+    `ESTABLISHED` only when the first encrypted frame from the initiator decrypts.
+    Any other input, or `HANDSHAKE_TIMEOUT`, closes the TCP connection without
+    sending a frame. Nothing the responder learned (the peer's identity, its `ROLE`)
+    takes effect before then, so a replay cannot displace an existing connection
+    (section 6.4).
 - On success the connection enters `ESTABLISHED` with no user interaction.
 
 ## 5. Session layer
@@ -434,7 +447,8 @@ length     = plaintext_length + 16
 | `CONNECTING` | TCP failure or timeout | `CLOSED` |
 | (responder) | TCP accepted | `HANDSHAKING` |
 | `HANDSHAKING` | XX complete | `AWAIT_CONFIRM` |
-| `HANDSHAKING` | IK complete | `ESTABLISHED` |
+| `HANDSHAKING` | IK complete (initiator; sends `PING`) | `ESTABLISHED` |
+| `HANDSHAKING` | First encrypted frame from the initiator decrypts (IK responder, section 4.8) | `ESTABLISHED` |
 | `HANDSHAKING` | Handshake error or `HANDSHAKE_TIMEOUT` | `CLOSED` (TCP close, no frame) |
 | `AWAIT_CONFIRM` | Local confirm and `PAIR_CONFIRM` received | `ESTABLISHED` (peer stored) |
 | `AWAIT_CONFIRM` | Local reject, `PAIR_REJECT` received, or `PAIR_TIMEOUT` | `CLOSING` |
@@ -617,3 +631,10 @@ mDNS may replace UDP broadcast in a later version.
   responder announces before it knows the connection's purpose; it now echoes the
   initiator's (section 6.4). Section 7.1 now says explicitly that a receive error
   does not stop the detecting side from sending `CLOSE`. No wire format changes.
+- **IK key confirmation (v0.1.4, 2026-11-28):** found by the handshake-replay
+  integration test (threat model H8). Replaying a recorded IK message 1 made the
+  responder report the initiator as connected and, under the duplicate rule of
+  section 6.4, close that peer's real connection. The responder now waits for the
+  initiator's first encrypted frame, which only the holder of the session keys can
+  produce (section 4.8). The frame format is unchanged; the initiator sends one
+  `PING` it would have sent anyway within `KEEPALIVE_INTERVAL`.
