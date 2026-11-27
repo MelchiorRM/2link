@@ -3,6 +3,10 @@
 Task 0.7, run on 2026-11-26. It decides whether spec v0.1 §4–5 can be frozen
 with this library.
 
+The PoC code (`poc/noise-c/`) was removed once its tests moved into the main
+suite (`tests/crypto/`, built against `third_party/noise-c/`); it remains in git
+history at commit `7b6733a`. Test names below refer to the PoC.
+
 **Verdict: noise-c + libsodium meets every requirement on Linux and Windows/MSVC,
 with two accommodations: a 25-line `Rekey()` shim, and our own CMake build.**
 
@@ -56,6 +60,11 @@ with two accommodations: a 25-line `Rekey()` shim, and our own CMake build.**
    2Link's protocol names. Removing them would require modifying noise-c.
 6. **Upstream warnings.** One MSVC warning (C4319) is in libsodium's `codecs.c`.
    noise-c and libsodium are compiled without our `-Werror` / `/WX`.
+7. **Message size limit (found after the PoC, 2026-11-27).** noise-c enforces the
+   Noise limit of 65 535 bytes per message, transport messages included. Spec v0.1
+   allowed 512 KiB encrypted frames; the PoC's frames were small, so it did not
+   notice. Fixed by the spec v0.1.1 erratum (`MAX_PAYLOAD` = 65 535), and covered by
+   `Transport.LargestFrameFitsTheNoiseLimit`.
 
 ## Alternatives considered
 

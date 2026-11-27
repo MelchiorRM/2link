@@ -2,7 +2,7 @@
 
 Status: **frozen** (2026-11-27). Applies to protocol version `1` (V1: LAN, direct
 TCP). The Noise library proof-of-concept confirmed sections 4 and 5
-(`poc/noise-c/RESULTS.md`). Changes from here on go into v0.2.
+(`docs/noise-poc-results.md`). Changes from here on go into v0.2.
 
 v0.1.1 (2026-11-27) is an erratum to v0.1: encrypted frames are limited to the Noise
 message size of 65 535 bytes (section 2.1, section 11). Nothing else changes.
@@ -591,7 +591,7 @@ mDNS may replace UDP broadcast in a later version.
 - **Noise library (2026-11-27):** noise-c @ `cfe2541` with the libsodium backend,
   a 2Link `Rekey()` shim and a 2Link CMake build. It passes every section 4–5
   requirement on Linux (GCC, ASan/UBSan) and Windows/MSVC. Details and evidence:
-  `poc/noise-c/RESULTS.md`.
+  `docs/noise-poc-results.md`.
 - **Frame size (v0.1.1, 2026-11-27):** v0.1 allowed encrypted frames of 512 KiB,
   but the Noise specification limits every message to 65 535 bytes and noise-c
   enforces it. The PoC did not catch this because its frames were small.

@@ -147,7 +147,7 @@ Status is `spec` (designed, not implemented) for all of v0.1.
 
 | ID | Threat | Actor | Mitigation | Verified by |
 |----|--------|-------|------------|-------------|
-| X1 | Bug or unsafe change in the Noise library; upstream is unmaintained (last commit December 2023) | Implementation bug, supply chain | Pin noise-c at a reviewed commit; build only the parts 2Link uses, with its libsodium backend; no unpinned updates; Cacophony reference vectors and the PoC conformance tests run in CI on Linux (ASan/UBSan) and MSVC | Conformance tests in CI, code review of any pin change |
+| X1 | Bug or unsafe change in the Noise library; upstream is unmaintained (last commit December 2023) | Implementation bug, supply chain | Pin noise-c at a reviewed commit; build only the parts 2Link uses, with its libsodium backend; no unpinned updates; Cacophony reference vectors and the conformance tests (`tests/crypto`) run in CI on Linux (ASan/UBSan) and MSVC | Conformance tests in CI, code review of any pin change |
 | X2 | `Rekey()` shim drifts from the Noise definition or desynchronises the counter, e.g. after a noise-c layout change | Implementation bug | Shim result checked against an independent libsodium computation of `REKEY(k)`; counter checked unchanged after rekey; both sides checked to stay in sync | Unit tests (`Rekey.*`) |
 | X3 | Use of a freed noise-c object after an error (noise-c frees it but leaves the caller's pointer set) | Implementation bug | C++ RAII wrapper discards the raw pointer on every error return and never exposes it | Unit test of each error path under ASan, code review |
 
