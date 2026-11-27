@@ -13,8 +13,10 @@
 //   kRekeyInterval under one key, whichever comes first (§5.4).
 //
 // The session is pure: no I/O, and time is passed in, so tests can use a fake
-// clock. Every receive error and every crypto failure is sticky: the session
-// refuses all later work and the caller must close the connection (§7.1).
+// clock. Errors are sticky and the caller must close the connection (§7.1):
+// - after a receive error, open() refuses all frames, and seal() only accepts
+//   CLOSE, so the side that detected the error can still report it;
+// - after a send-side crypto failure, seal() refuses everything.
 // Invalid arguments to seal() (a caller bug, not a peer action) are only
 // reported.
 //
@@ -79,8 +81,9 @@ class Session {
   //
   // Errors, not sticky: kProtocolError for HANDSHAKE, a stream that does not
   // fit the type, plaintext above kMaxPlaintext, or REKEY with a payload.
-  // Sticky: kInternalError if encryption fails or the counter is exhausted.
-  // After a sticky error every call returns that error.
+  // Sticky: kInternalError if encryption fails or the counter is exhausted;
+  // every later seal() returns it. After a receive error, sealing anything
+  // but CLOSE returns that receive error.
   [[nodiscard]] ErrorCode seal(Clock::time_point now, framing::FrameType type,
                                std::uint32_t stream_id, std::span<const std::uint8_t> plaintext,
                                std::vector<std::uint8_t>& out);
@@ -114,7 +117,7 @@ class Session {
 
   [[nodiscard]] std::uint64_t conn_id() const noexcept { return conn_id_; }
 
-  // The first error, or kNoError while the session works.
+  // The first error (send or receive), or kNoError while the session works.
   [[nodiscard]] bool failed() const noexcept { return error_ != ErrorCode::kNoError; }
   [[nodiscard]] ErrorCode error() const noexcept { return error_; }
 
@@ -122,7 +125,8 @@ class Session {
   Session(crypto::Handshake::Keys keys, std::uint64_t conn_id, Clock::time_point now,
           RekeyPolicy policy) noexcept;
 
-  ErrorCode fail(ErrorCode code) noexcept;
+  ErrorCode fail_send(ErrorCode code) noexcept;
+  ErrorCode fail_recv(ErrorCode code) noexcept;
   ErrorCode seal_one(framing::FrameType type, std::uint32_t stream_id,
                      std::span<const std::uint8_t> plaintext, std::vector<std::uint8_t>& out);
   ErrorCode rekey_send(Clock::time_point now, std::vector<std::uint8_t>& out);
@@ -134,7 +138,9 @@ class Session {
   // Where the current sending key started.
   std::uint64_t send_key_first_seq_ = 0;
   Clock::time_point send_key_since_;
-  ErrorCode error_ = ErrorCode::kNoError;
+  ErrorCode error_ = ErrorCode::kNoError;  // first error of either kind
+  ErrorCode send_error_ = ErrorCode::kNoError;
+  ErrorCode recv_error_ = ErrorCode::kNoError;
 };
 
 }  // namespace twolink::session
