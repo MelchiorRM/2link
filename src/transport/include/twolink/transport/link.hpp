@@ -34,6 +34,8 @@ using namespace std::chrono_literals;
 
 // §6.5.
 inline constexpr Clock::duration kConnectTimeout = 5s;
+// §6.6: incoming MSG frames per second before the Link stops reading (back-pressure).
+inline constexpr std::size_t kMaxMessagesPerSecond = 50;
 
 class Link : public std::enable_shared_from_this<Link> {
  public:
@@ -69,6 +71,9 @@ class Link : public std::enable_shared_from_this<Link> {
   // Stops callbacks (the owner is going away) and closes the socket.
   void detach();
 
+  // §6.6 incoming message rate; reading pauses once it is reached.
+  void set_message_rate_limit(std::size_t per_second) noexcept { max_messages_ = per_second; }
+
   [[nodiscard]] std::uint64_t id() const noexcept { return id_; }
   // CONNECTING is reported as nullopt.
   [[nodiscard]] std::optional<connection::State> state() const noexcept;
@@ -88,6 +93,10 @@ class Link : public std::enable_shared_from_this<Link> {
   void remember_remote();
   void start_read();
   void on_read(const std::error_code& ec, std::size_t n);
+  // Feeds buffered bytes to the parser in small slices, pausing (no reads)
+  // while the message budget is used up.
+  void process_pending();
+  [[nodiscard]] bool message_budget_left(Clock::time_point now);
   void enqueue(connection::Bytes bytes);
   void start_write();
   // After any Connection call: send its bytes, deliver events, re-arm the
@@ -106,6 +115,12 @@ class Link : public std::enable_shared_from_this<Link> {
   std::optional<connection::Connection> conn_;
   framing::FrameParser parser_;
   std::array<std::uint8_t, 16 * 1024> read_buf_{};
+  std::size_t pending_begin_ = 0;  // unparsed bytes: read_buf_[pending_begin_, pending_end_)
+  std::size_t pending_end_ = 0;
+  asio::steady_timer read_timer_;  // resumes reading after a back-pressure pause
+  std::size_t max_messages_ = kMaxMessagesPerSecond;
+  Clock::time_point window_start_{};
+  std::size_t window_messages_ = 0;
   std::deque<connection::Bytes> write_queue_;
   bool writing_ = false;
   bool closed_ = false;
