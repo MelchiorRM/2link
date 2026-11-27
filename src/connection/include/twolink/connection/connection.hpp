@@ -8,7 +8,7 @@
 // it appends to `out`, and drains its events.
 //
 //   HANDSHAKING --XX--> AWAIT_CONFIRM --both confirmed--> ESTABLISHED
-//        |  \--IK----------------------------------------^     |
+//        |  \--IK (+ key confirmation)--------------------^     |
 //        v                     v                                v
 //      CLOSED <------------ CLOSING <----------------------------
 //
@@ -222,6 +222,8 @@ class Connection {
   std::optional<crypto::PublicKey> peer_key_;
   handshake::HandshakePayload peer_payload_;
 
+  // IK responder between message 2 and the initiator's first frame (§4.8).
+  bool confirming_ = false;
   bool local_confirmed_ = false;
   bool peer_confirmed_ = false;
   std::uint64_t next_ping_nonce_ = 0;

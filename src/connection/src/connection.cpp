@@ -106,6 +106,18 @@ std::optional<Connection> Connection::accept(const crypto::StaticKeyPair& local,
 void Connection::on_frame(const FrameHeader& header, std::span<const std::uint8_t> payload,
                           Clock::time_point now, Bytes& out) {
   if (state_ == State::kClosed) return;
+  if (state_ == State::kHandshaking && confirming_) {
+    Bytes plaintext;
+    if (session_->open(header, payload, plaintext) != ErrorCode::kNoError) {
+      finish(ErrorCode::kHandshakeFailed, false, {});  // unconfirmed: nothing is sent
+      return;
+    }
+    confirming_ = false;
+    last_recv_ = now;
+    establish(false);
+    on_keyed_frame(header.type, header.stream_id, plaintext, now, out);
+    return;
+  }
   if (state_ == State::kHandshaking) {
     on_handshake_frame(header, payload, now, out);
     return;
@@ -203,7 +215,17 @@ void Connection::on_handshake_complete(Clock::time_point now, Bytes& out) {
   state_since_ = now;
 
   if (kind_ == HandshakeKind::kReconnect) {
+    if (noise_role_ == crypto::Role::kResponder) {
+      // Key confirmation (§4.8): IK message 1 can be replayed, so the
+      // responder waits for the initiator's first encrypted frame. Until then
+      // it stays HANDSHAKING, sends nothing, and HANDSHAKE_TIMEOUT applies.
+      confirming_ = true;
+      return;
+    }
     establish(false);
+    // The initiator proves it holds the keys at once.
+    static_cast<void>(
+        send(FrameType::kPing, kControlStream, encode_ping(next_ping_nonce_++), now, out));
     return;
   }
   state_ = State::kAwaitConfirm;
