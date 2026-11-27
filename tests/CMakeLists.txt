@@ -17,6 +17,7 @@ add_executable(twolink_tests
   handshake/payload_test.cpp
   handshake/engine_test.cpp
   core/utf8_test.cpp
+  core/tlv_test.cpp
   connection/pairing_gate_test.cpp
   connection/payloads_test.cpp
   connection/connection_test.cpp
