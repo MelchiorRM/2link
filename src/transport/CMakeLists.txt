@@ -1,4 +1,4 @@
-add_library(twolink_transport src/link.cpp)
+add_library(twolink_transport src/link.cpp src/node.cpp)
 add_library(twolink::transport ALIAS twolink_transport)
 target_include_directories(twolink_transport PUBLIC include)
 target_link_libraries(twolink_transport
