@@ -16,6 +16,7 @@
 #include <sodium.h>
 
 #include "keystore_file_format.hpp"
+#include "private_file.hpp"
 #include "twolink/identity/keystore.hpp"
 
 namespace twolink::identity {
@@ -87,29 +88,12 @@ bool read_all(int fd, std::span<std::uint8_t> data) {
 // Group or others have any access.
 bool too_open(mode_t mode) { return (mode & (S_IRWXG | S_IRWXO)) != 0; }
 
-// Creates dir (mode 0700) if needed and checks that it is a real directory owned
-// by us that nobody else can write to.
 KeystoreStatus ensure_dir(const std::filesystem::path& dir) {
-  std::error_code ec;
-  if (dir.has_parent_path()) std::filesystem::create_directories(dir.parent_path(), ec);
-  if (::mkdir(dir.c_str(), 0700) != 0 && errno != EEXIST) return KeystoreStatus::kIoError;
-  struct stat st {};
-  if (::lstat(dir.c_str(), &st) != 0) return KeystoreStatus::kIoError;
-  if (!S_ISDIR(st.st_mode) || st.st_uid != ::geteuid()) return KeystoreStatus::kInsecurePermissions;
-  if ((st.st_mode & (S_IWGRP | S_IWOTH)) != 0) return KeystoreStatus::kInsecurePermissions;
-  return KeystoreStatus::kOk;
-}
-
-std::string random_suffix() {
-  std::array<std::uint8_t, 8> r{};
-  randombytes_buf(r.data(), r.size());
-  static constexpr char kHex[] = "0123456789abcdef";
-  std::string s;
-  for (const std::uint8_t b : r) {
-    s += kHex[b >> 4];
-    s += kHex[b & 0x0F];
+  switch (detail::ensure_private_dir(dir)) {
+    case detail::FileStatus::kOk: return KeystoreStatus::kOk;
+    case detail::FileStatus::kInsecure: return KeystoreStatus::kInsecurePermissions;
+    default: return KeystoreStatus::kIoError;
   }
-  return s;
 }
 
 void fsync_dir(const std::filesystem::path& dir) {
@@ -168,7 +152,7 @@ KeystoreStatus FileKeystore::store(std::string_view name, const SecretKey& secre
 
   // Write a private temporary file, then link it into place: link() never
   // replaces an existing file, so a concurrent store cannot be overwritten.
-  const std::filesystem::path tmp = dir_ / ("." + std::string(name) + ".tmp-" + random_suffix());
+  const std::filesystem::path tmp = dir_ / ("." + std::string(name) + ".tmp-" + detail::random_suffix());
   Fd fd(::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0600));
   if (!fd.ok()) return KeystoreStatus::kIoError;
   const bool written = write_all(fd.get(), file) && ::fsync(fd.get()) == 0;
