@@ -287,7 +287,7 @@ TEST(HandshakeIK, CompletesWithTrustedPeer) {
   Peers p;
   auto ic = config(HandshakeKind::kReconnect, Role::kInitiator, "alpha", ConnectionRole::kBulk);
   ic.remote_static = p.resp_key.public_key();
-  auto rc = config(HandshakeKind::kReconnect, Role::kResponder, "beta", ConnectionRole::kBulk);
+  auto rc = config(HandshakeKind::kReconnect, Role::kResponder, "beta");
   int checks = 0;
   rc.check_remote = [&](const PublicKey& k) {
     ++checks;
@@ -305,6 +305,7 @@ TEST(HandshakeIK, CompletesWithTrustedPeer) {
   auto b = resp->take_result();
   ASSERT_TRUE(a && b);
   EXPECT_EQ(b->remote_payload.role, ConnectionRole::kBulk);
+  EXPECT_EQ(a->remote_payload.role, ConnectionRole::kBulk);  // responder echoes ROLE
   EXPECT_EQ(a->remote_payload.device_name, "beta");
   expect_keys_work(*a, *b);
 }

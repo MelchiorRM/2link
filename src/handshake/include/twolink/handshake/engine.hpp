@@ -64,7 +64,8 @@ struct EngineConfig {
   std::uint64_t conn_id = 0;
   // RECONNECT initiator only, and required there: the pinned peer key (§4.8).
   std::optional<crypto::PublicKey> remote_static;
-  // What this side announces (§4.3).
+  // What this side announces (§4.3). A responder's ROLE is replaced by the
+  // initiator's once known, so both sides agree on the connection role.
   HandshakePayload local_payload;
   // Called once, as soon as the peer's static key is authenticated. Optional:
   // when empty every key is accepted (PAIR: the SAS decides, §4.5).
