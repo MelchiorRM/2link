@@ -35,6 +35,7 @@ add_subdirectory(src/identity)
 add_subdirectory(src/session)
 add_subdirectory(src/handshake)
 add_subdirectory(src/connection)
+add_subdirectory(src/transport)
 add_subdirectory(apps/cli)
 
 if(TWOLINK_BUILD_TESTS)
