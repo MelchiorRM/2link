@@ -89,8 +89,8 @@ design review, no automated test).
 | H2 | 3 failed pairings from source A in 10 min, then a 4th from A and one from B | Unit (fake clock) | A refused without handshake, B accepted; A accepted again after 10 min; limiter table capped at 256 sources | 1 | done |
 | H2 | `PAIR` outside the pairing window; window expiry; window after a successful pairing | Unit (fake clock) | Refused outside the window; window closes after 5 min or one success; `RECONNECT` unaffected | 1 | done |
 | H3 | — | Review | UI requires explicit confirm on both sides | 8 | review |
-| H4 | Peer reappears with the same name and a new key | Integration | Shown as unknown + identity-change warning; IK refused; old record kept until explicit re-pair | 1 | planned |
-| H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | planned |
+| H4 | Peer reappears with the same name and a new key | Integration | Shown as unknown + identity-change warning; IK refused; old record kept until explicit re-pair | 1 | done (loopback `NodeTest`) |
+| H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | done (loopback `NodeTest`) |
 | H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | done |
 | H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | unit done; integration in 1.10 |
 | H7 | TLV list: unknown optional tag (`0x7F`), unknown critical tag (`0x80`, `0xFF`), duplicate known and unknown tags, missing required tag, truncated value | Unit, fuzz | Optional ignored; every other case rejects the whole list | 1 | done (`fuzz_handshake_payload`) |
