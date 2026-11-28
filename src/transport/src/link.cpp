@@ -1,5 +1,6 @@
 #include "twolink/transport/link.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <utility>
 
@@ -10,7 +11,11 @@ std::atomic<std::uint64_t> g_next_id{1};
 }  // namespace
 
 Link::Link(const asio::any_io_executor& ex, EventHandler on_event)
-    : id_(g_next_id.fetch_add(1)), socket_(ex), timer_(ex), on_event_(std::move(on_event)) {}
+    : id_(g_next_id.fetch_add(1)),
+      socket_(ex),
+      timer_(ex),
+      on_event_(std::move(on_event)),
+      read_timer_(ex) {}
 
 std::shared_ptr<Link> Link::accept(asio::ip::tcp::socket socket, const crypto::StaticKeyPair& local,
                                    handshake::HandshakePayload local_payload,
@@ -102,22 +107,51 @@ void Link::start_read() {
 
 void Link::on_read(const std::error_code& ec, std::size_t n) {
   if (closed_ || !conn_) return;
-  connection::Bytes out;
   if (ec) {
     conn_->on_transport_lost();
-    after(std::move(out));
+    after({});
     return;
   }
-  const auto now = Clock::now();
-  const framing::FrameError err =
-      parser_.feed(std::span(read_buf_).first(n), [&](const framing::FrameView& frame) {
-        conn_->on_frame(frame.header, frame.payload, now, out);
-      });
-  if (err != framing::FrameError::kOk) {
-    // Malformed input is fatal (§1); with keys the Connection sends CLOSE.
-    conn_->close(framing::to_error_code(err), now, out);
+  pending_begin_ = 0;
+  pending_end_ = n;
+  process_pending();
+}
+
+bool Link::message_budget_left(Clock::time_point now) {
+  if (now - window_start_ >= 1s) {
+    window_start_ = now;
+    window_messages_ = 0;
   }
-  after(std::move(out));
+  return window_messages_ < max_messages_;
+}
+
+void Link::process_pending() {
+  constexpr std::size_t kSlice = 512;  // bounds how far one pass can overshoot the budget
+  while (pending_begin_ < pending_end_) {
+    if (closed_ || !conn_) return;
+    const auto now = Clock::now();
+    if (!message_budget_left(now)) {
+      // Back-pressure (§6.6): stop reading until the next window.
+      read_timer_.expires_at(window_start_ + 1s);
+      read_timer_.async_wait([self = shared_from_this()](const std::error_code& e) {
+        if (!e && !self->closed_) self->process_pending();
+      });
+      return;
+    }
+    const std::size_t n = std::min(kSlice, pending_end_ - pending_begin_);
+    connection::Bytes out;
+    const framing::FrameError err = parser_.feed(
+        std::span(read_buf_).subspan(pending_begin_, n), [&](const framing::FrameView& frame) {
+          if (frame.header.type == framing::FrameType::kMsg) ++window_messages_;
+          conn_->on_frame(frame.header, frame.payload, now, out);
+        });
+    pending_begin_ += n;
+    if (err != framing::FrameError::kOk) {
+      // Malformed input is fatal (§1); with keys the Connection sends CLOSE.
+      conn_->close(framing::to_error_code(err), now, out);
+    }
+    after(std::move(out));
+  }
   if (!closed_) start_read();
 }
 
@@ -186,6 +220,7 @@ void Link::shutdown_socket() {
   if (closed_) return;
   closed_ = true;
   timer_.cancel();
+  read_timer_.cancel();
   std::error_code ec;
   socket_.shutdown(asio::ip::tcp::socket::shutdown_both, ec);
   socket_.close(ec);

@@ -486,6 +486,15 @@ void connect_raw(RawPeer& raw, Connection& conn, HandshakeKind kind, ConnectionR
   ASSERT_TRUE(result);
   raw.session = twolink::session::Session::create(std::move(result->keys), kConnId, kT0);
   ASSERT_TRUE(raw.session);
+  if (kind == HandshakeKind::kReconnect) {
+    // Key confirmation (§4.8): the IK initiator's first frame; read the PONG.
+    Bytes reply;
+    deliver(conn, raw.seal(FrameType::kPing, 0, twolink::connection::encode_ping(1)), kT0, reply);
+    for (const Frame& f : parse(reply)) {
+      Bytes plain;
+      ASSERT_EQ(raw.session->open(f.header, f.payload, plain), ErrorCode::kNoError);
+    }
+  }
 }
 
 ErrorCode close_code_after(Connection& conn, RawPeer& raw, const Bytes& wire) {
@@ -570,6 +579,81 @@ TEST(FrameRules, MalformedControlPayloadIsFatal) {
   connect_raw(raw, *conn, HandshakeKind::kReconnect, ConnectionRole::kPrimary, key.public_key());
   EXPECT_EQ(close_code_after(*conn, raw, raw.seal(FrameType::kPing, 0, {1, 2, 3})),
             ErrorCode::kProtocolError);
+}
+
+// --- IK key confirmation (§4.8, threat model H8) ------------------------------------
+
+TEST(KeyConfirmation, ResponderWaitsForTheInitiatorsFirstFrame) {
+  const StaticKeyPair key = StaticKeyPair::generate();
+  RawPeer raw;
+  twolink::handshake::EngineConfig ec;
+  ec.kind = HandshakeKind::kReconnect;
+  ec.role = twolink::crypto::Role::kInitiator;
+  ec.conn_id = kConnId;
+  ec.remote_static = key.public_key();
+  ec.local_payload = HandshakePayload{"raw", ConnectionRole::kPrimary, {}};
+  raw.engine = twolink::handshake::HandshakeEngine::create(ec, raw.key);
+  Bytes msg1;
+  ASSERT_EQ(raw.engine->start(msg1), ErrorCode::kNoError);
+
+  // A replay: IK message 1 arrives, the initiator never follows up.
+  auto conn = Connection::accept(key, HandshakePayload{"b", ConnectionRole::kPrimary, {}},
+                                 allow_all(), kT0);
+  Bytes msg2;
+  deliver(*conn, msg1, kT0, msg2);
+  EXPECT_FALSE(msg2.empty());                    // message 2 is sent...
+  EXPECT_EQ(conn->state(), State::kHandshaking);  // ...but nothing is established
+  EXPECT_TRUE(conn->take_events().empty());
+  Bytes later;
+  conn->on_tick(kT0 + 10s, later);
+  EXPECT_TRUE(later.empty());  // closes silently at HANDSHAKE_TIMEOUT
+  EXPECT_EQ(conn->state(), State::kClosed);
+}
+
+TEST(KeyConfirmation, GarbageInsteadOfTheFirstFrameClosesSilently) {
+  RawPeer raw;
+  const StaticKeyPair key = StaticKeyPair::generate();
+  auto conn = Connection::accept(key, HandshakePayload{"b", ConnectionRole::kPrimary, {}},
+                                 allow_all(), kT0);
+  twolink::handshake::EngineConfig ec;
+  ec.kind = HandshakeKind::kReconnect;
+  ec.role = twolink::crypto::Role::kInitiator;
+  ec.conn_id = kConnId;
+  ec.remote_static = key.public_key();
+  ec.local_payload = HandshakePayload{"raw", ConnectionRole::kPrimary, {}};
+  raw.engine = twolink::handshake::HandshakeEngine::create(ec, raw.key);
+  Bytes msg1;
+  ASSERT_EQ(raw.engine->start(msg1), ErrorCode::kNoError);
+  Bytes msg2;
+  deliver(*conn, msg1, kT0, msg2);
+  FrameHeader h;
+  h.type = FrameType::kPing;
+  h.conn_id = kConnId;
+  h.length = 8 + 16;
+  Bytes reply;
+  conn->on_frame(h, Bytes(24, 0x55), kT0, reply);
+  EXPECT_TRUE(reply.empty());  // no CLOSE to an unconfirmed peer
+  EXPECT_EQ(conn->state(), State::kClosed);
+  const auto e = find(conn->take_events(), Kind::kClosed);
+  ASSERT_TRUE(e);
+  EXPECT_EQ(e->code, ErrorCode::kHandshakeFailed);
+}
+
+TEST(KeyConfirmation, InitiatorSendsPingAtOnce) {
+  Pair p;
+  start(p, HandshakeKind::kReconnect);
+  // Deliver a's message 1, then b's message 2 back to a.
+  Bytes msg2;
+  deliver(*p.cb, p.a_out, kT0, msg2);
+  Bytes confirm;
+  deliver(*p.ca, msg2, kT0, confirm);
+  EXPECT_EQ(p.ca->state(), State::kEstablished);
+  const auto frames = parse(confirm);
+  ASSERT_EQ(frames.size(), 1u);
+  EXPECT_EQ(frames[0].header.type, FrameType::kPing);
+  Bytes pong;
+  deliver(*p.cb, confirm, kT0, pong);
+  EXPECT_EQ(p.cb->state(), State::kEstablished);
 }
 
 // --- simultaneous connect (§6.4) --------------------------------------------------

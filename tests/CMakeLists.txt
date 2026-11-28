@@ -26,7 +26,9 @@ add_executable(twolink_tests
   discovery/device_table_test.cpp
   discovery/service_test.cpp
   cli/cli_test.cpp
+  integration/integration_test.cpp
   framing/frame_parser_test.cpp)
+target_include_directories(twolink_tests PRIVATE support integration)
 target_link_libraries(twolink_tests PRIVATE
   twolink::core twolink::framing twolink::crypto twolink::identity twolink::session twolink::handshake twolink::connection twolink::transport twolink::discovery twolink::cli_lib twolink::noisec twolink::options
   unofficial-sodium::sodium GTest::gtest_main)

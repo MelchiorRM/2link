@@ -111,6 +111,8 @@ class Node {
   [[nodiscard]] std::size_t link_count() const noexcept { return links_.size(); }
   [[nodiscard]] const identity::DeviceId& device_id() const noexcept { return device_id_; }
   [[nodiscard]] connection::PairingGate& pairing_gate() noexcept { return gate_; }
+  // §6.6 incoming message rate per connection, for connections made from now on.
+  void set_message_rate_limit(std::size_t per_second) noexcept { message_rate_ = per_second; }
 
  private:
   struct Entry {
@@ -148,6 +150,7 @@ class Node {
   connection::PairingGate gate_;
   std::map<LinkId, Entry> links_;
   std::map<identity::DeviceId, PeerLinks> peers_;
+  std::size_t message_rate_ = kMaxMessagesPerSecond;
   std::shared_ptr<bool> alive_ = std::make_shared<bool>(true);
 };
 

@@ -84,7 +84,7 @@ design review, no automated test).
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
-| H1 | Relay attacker runs separate XX handshakes with each side | Integration | The two SAS values differ; neither side stores the attacker key unless confirmed | 1 | planned |
+| H1 | Relay attacker runs separate XX handshakes with each side | Integration | The two SAS values differ; neither side stores the attacker key unless confirmed | 1 | done |
 | H1 | SAS known-answer vectors (fixed `h` → expected 6 digits) | Unit | Matches spec §4.5 exactly, incl. zero padding | 1 | done |
 | H2 | 3 failed pairings from source A in 10 min, then a 4th from A and one from B | Unit (fake clock) | A refused without handshake, B accepted; A accepted again after 10 min; limiter table capped at 256 sources | 1 | done |
 | H2 | `PAIR` outside the pairing window; window expiry; window after a successful pairing | Unit (fake clock) | Refused outside the window; window closes after 5 min or one success; `RECONNECT` unaffected | 1 | done |
@@ -92,23 +92,23 @@ design review, no automated test).
 | H4 | Peer reappears with the same name and a new key | Integration | Shown as unknown + identity-change warning; IK refused; old record kept until explicit re-pair | 1 | done (loopback `NodeTest`) |
 | H5 | Unpaired key attempts IK | Integration | Responder closes TCP; no session; no frame sent | 1 | done (loopback `NodeTest`) |
 | H6 | Every handshake failure path | Unit | No bytes written before close; error reported locally only | 1 | done |
-| H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | unit done; integration in 1.10 |
+| H7 | Wrong prologue; `kind` changes mid-handshake; IK failure | Unit, integration | Handshake fails; no XX fallback | 1 | done |
 | H7 | TLV list: unknown optional tag (`0x7F`), unknown critical tag (`0x80`, `0xFF`), duplicate known and unknown tags, missing required tag, truncated value | Unit, fuzz | Optional ignored; every other case rejects the whole list | 1 | done (`fuzz_handshake_payload`) |
-| H8 | Replay a captured handshake message | Integration | Handshake fails | 1 | planned |
-| H9 | Open many TCP connections that never complete the handshake | Integration (fake clock) | At most 4 `PAIR` handshakes and one `AWAIT_CONFIRM` at a time; extra connections closed; all time out after 10 s; memory bounded | 1 | limits and timeout unit-tested; load test in 1.10 |
-| H10 | Two peers connected at once | Integration | Frames from peer A's connection never decrypt under peer B's keys; identity always from the Noise static key | 1 | planned |
+| H8 | Replay a captured handshake message | Integration | Handshake fails | 1 | done (found and fixed the IK replay issue, spec v0.1.4) |
+| H9 | Open many TCP connections that never complete the handshake | Integration (fake clock) | At most 4 `PAIR` handshakes and one `AWAIT_CONFIRM` at a time; extra connections closed; all time out after 10 s; memory bounded | 1 | done (20 sockets; real 10 s timeout) |
+| H10 | Two peers connected at once | Integration | Frames from peer A's connection never decrypt under peer B's keys; identity always from the Noise static key | 1 | done |
 | H10 | — | Review | No code path derives identity from name or announcement | 1 | review |
 
 ### 4.3 Session and framing
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
-| S1 | Capture a session with `tcpdump`; search for known plaintext | System | Plaintext absent | 1 | planned |
+| S1 | Capture a session with `tcpdump`; search for known plaintext | System | Plaintext absent | 1 | done (TCP proxy capture instead of `tcpdump`: no message text, device names or SAS on the wire) |
 | S2 | Flip each bit of header and payload of an encrypted frame | Unit | Every flip is fatal and no plaintext is returned; flips that leave `conn_id`, `seq` and `length` intact (payload, type/stream variants) → `DECRYPT_FAILED`, the rest are caught earlier by the parser or the `conn_id`/`seq` checks | 1 | done |
 | S3 | Duplicate, skipped and swapped `seq` | Unit | Fatal `REPLAY_DETECTED` | 1 | done |
 | S4 | Encrypt N frames with a rekey in the middle; compare `seq` with both CipherState counters | Unit | `seq` == sender counter == receiver counter for every frame; counter not reset by rekey; no (key, nonce) pair repeats; connection closes before counter `2^64-1` | 1 | done |
 | S4 | — | Review | No code sets a nonce manually; only the CipherState chooses nonces | 1 | review |
-| S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | unit done; integration in 1.10 |
+| S5 | Replay a frame from connection A on connection B | Integration | Rejected (`conn_id` mismatch or decrypt failure) | 1 | done |
 | S6 | Header with `length` above limits, split and unsplit | Unit | Rejected after the header; buffer never exceeds `kMaxFrameSize` | 0 | done |
 | S7 | Fuzz the frame parser; random garbage under ASan/UBSan | Fuzz, unit | No crash or sanitizer report; chunking-invariant results | 0 | done |
 | S8 | Every (state, frame type) and (stream, frame type) pair from spec §2.2 and §6.3 | Unit | Allowed pairs accepted; all others fatal | 0 / 1 | done (stream rules, state and role tables, end-to-end samples) |
@@ -139,14 +139,14 @@ design review, no automated test).
 | L2 | File permissions after creation | Unit (Linux) | `0600` | 1 | done (also: group-readable file and symlink refused) |
 | L3 | Modify, delete or reorder a message record | Unit | Hash chain verification fails | 7 | planned |
 | L4 | — | Review | `sodium_memzero` on every key buffer at teardown | 1 | review |
-| L5 | Run integration tests with debug logging; grep logs for key bytes, plaintext markers, SAS | Integration | No match | 1 | planned |
+| L5 | Run integration tests with debug logging; grep logs for key bytes, plaintext markers, SAS | Integration | No match | 1 | done (the library has no logging; a full pair + chat writes nothing to stdout/stderr) |
 
 ### 4.6 Per-peer resources
 
 | ID | Test | Level | Pass criterion | Phase | Status |
 |----|------|-------|----------------|-------|--------|
 | Q1 | Peer A exceeds each quota in spec §6.6 while peer B chats and transfers | Integration | A's excess refused or back-pressured as specified; A's memory use stays bounded; B's chat latency and transfer unaffected | 2 | planned |
-| Q1 | Message larger than 60 KiB; 1 000 messages per second | Unit | Oversized message fatal; flood slowed by back-pressure, not buffered | 1 | planned |
+| Q1 | Message larger than 60 KiB; 1 000 messages per second | Unit | Oversized message fatal; flood slowed by back-pressure, not buffered | 1 | done (50/s; reading pauses) |
 | Q2 | Fill offline storage for one peer | Unit | Cap enforced per peer; other peers' storage unaffected | 7 | planned |
 
 ### 4.7 Third-party cryptographic code

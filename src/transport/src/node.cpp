@@ -90,6 +90,7 @@ void Node::on_accept(asio::ip::tcp::socket socket) {
 
   auto link = Link::accept(std::move(socket), local_, local_payload(), std::move(hooks), handler());
   if (link->closed()) return;
+  link->set_message_rate_limit(message_rate_);
   links_.emplace(link->id(), Entry{link, attempt, std::nullopt});
 }
 
@@ -117,6 +118,7 @@ LinkId Node::pair(const asio::ip::tcp::endpoint& to) {
   connection::InitiatorParams params{HandshakeKind::kPair, ConnectionRole::kPrimary, std::nullopt,
                                      connection::random_conn_id()};
   auto link = Link::connect(io_, to, local_, local_payload(), params, std::move(hooks), handler());
+  link->set_message_rate_limit(message_rate_);
   links_.emplace(link->id(), Entry{link, attempt, std::nullopt});
   return link->id();
 }
@@ -128,6 +130,7 @@ std::optional<LinkId> Node::reconnect(const DeviceId& peer, const asio::ip::tcp:
   connection::InitiatorParams params{HandshakeKind::kReconnect, role, rec->static_key,
                                      connection::random_conn_id()};
   auto link = Link::connect(io_, to, local_, local_payload(), params, {}, handler());
+  link->set_message_rate_limit(message_rate_);
   links_.emplace(link->id(), Entry{link, nullptr, peer});
   return link->id();
 }
