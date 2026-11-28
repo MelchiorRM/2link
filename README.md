@@ -71,7 +71,9 @@ Then chat. Each side finds the other on the LAN, or use `--host`:
 ```
 
 TCP port 47821 and UDP port 47820 must be reachable on the LAN. To try it on
-one machine, give each instance its own `--data-dir` and `--port`.
+one machine, give each instance its own `--data-dir` and `--port`. For a full
+walkthrough with two PCs (build, firewall, pairing, troubleshooting), see
+[`docs/two-pc-guide.md`](docs/two-pc-guide.md).
 
 ## Layout
 
